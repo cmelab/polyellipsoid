@@ -23,6 +23,7 @@ class System:
         self.n_chains = n_chains
         self.chain_lengths = chain_lengths
         self.bead_mass = bead_mass
+        self.density = density
         self.axis_length = axis_length
         self.major_axis = major_axis
         self.system_mass = bead_mass * n_chains * chain_lengths
@@ -42,17 +43,73 @@ class System:
             )
             chain.build(n=l)
             self.chains.append(chain)
+        assert len(self.chains) == len(self.n_chains)
 
+    @mb_system.setter
+    def pack(self, box_expand_factor=2):
+        """Uses mBuild's fill_box function to fill a cubic box
+        with the ellipsoid chains. It may be necessary to expand
+        the system volume during the packing step, and handling
+        shrinking towards a target density during the simulation.
 
-    def pack(self, box_expand_factor):
+        Parameters:
+        -----------
+        box_expand_factor : float, default=2
+            The factor by which to expand the box edge lengths during
+            the packing step. If PACKMOL fails, you may need to
+            increase this parameter.
+
+        """
+        self.set_target_box()
+        pack_box = self.target_box * box_expand_factor
         system = mb.packing.fill_box(
-            compounds=self.chains, n_compounds=self.n_chains
+            compounds=self.chains,
+            n_compounds=self.n_chains,
+            box=list(pack_box),
+            overlap=0.2,
+            edge=0.9,
+            fix_orientation=True
         )
+        self.mb_system = system
 
-    def stack(self, a, b, n, vector):
-	    pass
+    @mb_system.setter
+    def stack(self, x, y, n, vector, z_axis_adjust=1.0):
+        """Arranges chains in layers on an n x n lattice.
 
-    def _set_target_box(
+        """
+        if len(self.chains) != n*n*2:
+            raise ValueError(
+                    "Using this method creates a system of n x n "
+                    "unit cells with each unit cell containing 2 molecules. "
+                    "The number of molecules in the system should equal "
+                    "2*n*n."
+            )
+        next_idx = 0
+        system = mb.Compound()
+        for i in range(n):
+            layer = mb.Compound()
+            for j in range(n):
+                try:
+                    chain1 = self.chains[next_idx]
+                    chain2 = self.chains[next_idx + 1]
+                    translate_by = np.array(vector)*(x, y, 0)
+                    chain2.translate_by(translate_by)
+                    cell = mb.Compound(subcompounds=[chain1, chain2])
+                    cell.translate((0, y*j, 0))
+                    layer.add(cell)
+                    next_idx += 2
+                except IndexError:
+                    pass
+            layer.translate((x*i, 0, 0))
+            system.add(layer)
+
+        bounding_box = system.get_boundingbox().lengths
+        target_z = bounding_box[-1] * z_axis_adjust
+        self.mb_system = system
+        self.set_target_box(z_constraint=target_z)
+
+    @target_box.setter
+    def set_target_box(
             self,
             x_constraint=None,
             y_constraint=None,
@@ -61,7 +118,7 @@ class System:
         """Set the target volume of the system during
         the initial shrink step.
         If no constraints are set, the target box is cubic.
-        Setting constraints will hold certain box vectors
+        Setting constraints will hold those box vectors
         constant and adjust others to match the target density.
 
         Parameters:
@@ -72,6 +129,7 @@ class System:
             Fixes the box length along the y axis
         z_constraint : float, optional, default=None
             Fixes the box length along the z axis
+
         """
         if not any([x_constraint, y_constraint, z_constraint]):
             Lx = Ly = Lz = self._calculate_L()
@@ -83,6 +141,7 @@ class System:
             L = self._calculate_L(fixed_L = fixed_L)
             constraints[np.where(constraints==None)] = L
             Lx, Ly, Lz = constraints
+
         self.target_box = np.array([Lx, Ly, Lz])
 
     def _calculate_L(self, fixed_L=None):
