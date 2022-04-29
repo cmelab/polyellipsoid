@@ -26,7 +26,8 @@ class System:
         self.density = density
         self.axis_length = axis_length
         self.major_axis = major_axis
-        self.system_mass = bead_mass * n_chains * chain_lengths
+        self.n_beads = sum([i*j for i,j in zip(n_chains, chain_lengths)])
+        self.system_mass = bead_mass * self.n_beads
         self.mb_system = None
         
         self.chains = []
@@ -71,6 +72,7 @@ class System:
             fix_orientation=True
         )
         self.mb_system = system
+		self.snapshot = _make_rigid_snapshot()
 
     @mb_system.setter
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
@@ -88,7 +90,7 @@ class System:
         system = mb.Compound()
         for i in range(n):
             layer = mb.Compound()
-            for j in range(n):
+            for j in range(n): # Add chains to the layer along the y dir
                 try:
                     chain1 = self.chains[next_idx]
                     chain2 = self.chains[next_idx + 1]
@@ -100,13 +102,14 @@ class System:
                     next_idx += 2
                 except IndexError:
                     pass
-            layer.translate((x*i, 0, 0))
+            layer.translate((x*i, 0, 0)) # shift layers along x dir
             system.add(layer)
 
         bounding_box = system.get_boundingbox().lengths
         target_z = bounding_box[-1] * z_axis_adjust
         self.mb_system = system
         self.set_target_box(z_constraint=target_z)
+		self.snapshot = _make_rigid_snapshot()
 
     @target_box.setter
     def set_target_box(
@@ -163,3 +166,24 @@ class System:
                 L = L**(1/2)
         L *= units["cm_to_nm"]  # convert cm to nm
         return L
+
+    def _make_rigid_snapshot(self):
+        init_snap = hoomd.Snapshot()
+        num_rigid_bodies = self.n_beads 
+        init_snap.particles.types = ["R"]
+        init_snap.particles.N = self.n_beads
+        snapshot, refs = to_hoomdsnapshot(
+                self.mb_system, hoomd_snapshot=init_snap
+        )
+		# Get head-tail pair indices	
+        pair_idx = [(i,i+1) for i in range(
+            self.n_beads, snapshot.particles.N, 2
+        )]
+		# Set position of rigid centers, set rigid body attr	
+		for idx, pair in enumerate(pair_idx):
+			pos1 = snapshot.particles.position[pair[0]]
+			pos2 = snapshot.particles.position[pair[1]]
+			snapshot.particles.position[idx] = np.mean([pos1, pos2], axis=0)
+			snapshot.particles.body[idx] = idx
+			snapshot.particles.body[list(pair)] = idx * np.ones_like(pair)
+		return snapshot	
