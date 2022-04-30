@@ -28,6 +28,7 @@ class System:
         self.major_axis = major_axis
         self.n_beads = sum([i*j for i,j in zip(n_chains, chain_lengths)])
         self.system_mass = bead_mass * self.n_beads
+        self.target_box = None
         self.mb_system = None
         
         self.chains = []
@@ -46,7 +47,7 @@ class System:
             self.chains.append(chain)
         assert len(self.chains) == len(self.n_chains)
 
-    @mb_system.setter
+    @system.setter
     def pack(self, box_expand_factor=2):
         """Uses mBuild's fill_box function to fill a cubic box
         with the ellipsoid chains. It may be necessary to expand
@@ -61,7 +62,8 @@ class System:
             increase this parameter.
 
         """
-        self.set_target_box()
+        if self.target_box is None:
+            self.set_target_box()
         pack_box = self.target_box * box_expand_factor
         system = mb.packing.fill_box(
             compounds=self.chains,
@@ -71,10 +73,9 @@ class System:
             edge=0.9,
             fix_orientation=True
         )
-        self.mb_system = system
-		self.snapshot = _make_rigid_snapshot()
+		self.snapshot = self._make_rigid_snapshot(sytem)
 
-    @mb_system.setter
+    @system.setter
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
 
@@ -107,9 +108,8 @@ class System:
 
         bounding_box = system.get_boundingbox().lengths
         target_z = bounding_box[-1] * z_axis_adjust
-        self.mb_system = system
         self.set_target_box(z_constraint=target_z)
-		self.snapshot = _make_rigid_snapshot()
+		self.snapshot = self._make_rigid_snapshot(system)
 
     @target_box.setter
     def set_target_box(
@@ -155,6 +155,7 @@ class System:
         If constraints are set, this will solve for the required
         lengths of the remaining non-constrained edges to match
         the target density.
+
         """
         M = self.system_mass * units["amu_to_g"]  # grams
         vol = (M / self.density) # cm^3
@@ -167,13 +168,15 @@ class System:
         L *= units["cm_to_nm"]  # convert cm to nm
         return L
 
-    def _make_rigid_snapshot(self):
+    def _make_rigid_snapshot(self, mb_system):
+        """
+        """
         init_snap = hoomd.Snapshot()
         num_rigid_bodies = self.n_beads 
         init_snap.particles.types = ["R"]
         init_snap.particles.N = self.n_beads
         snapshot, refs = to_hoomdsnapshot(
-                self.mb_system, hoomd_snapshot=init_snap
+                mb_system, hoomd_snapshot=init_snap
         )
 		# Get head-tail pair indices	
         pair_idx = [(i,i+1) for i in range(
