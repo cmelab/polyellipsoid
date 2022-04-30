@@ -1,6 +1,8 @@
 from ellipsoid import Ellipsoid, Polymer
 
 class System:
+    """
+    """
     def __init__(
             n_chains,
             chain_lengths,
@@ -47,16 +49,16 @@ class System:
             self.chains.append(chain)
         assert len(self.chains) == len(self.n_chains)
 
-    @system.setter
-    def pack(self, box_expand_factor=2):
+    @snapshot.setter
+    def pack(self, box_expand_factor=3):
         """Uses mBuild's fill_box function to fill a cubic box
         with the ellipsoid chains. It may be necessary to expand
         the system volume during the packing step, and handling
         shrinking towards a target density during the simulation.
 
-        Parameters:
-        -----------
-        box_expand_factor : float, default=2
+        Parameters
+        ----------
+        box_expand_factor : float, default=3
             The factor by which to expand the box edge lengths during
             the packing step. If PACKMOL fails, you may need to
             increase this parameter.
@@ -75,7 +77,7 @@ class System:
         )
 		self.snapshot = self._make_rigid_snapshot(sytem)
 
-    @system.setter
+    @snapshot.setter
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
 
@@ -124,7 +126,7 @@ class System:
         Setting constraints will hold those box vectors
         constant and adjust others to match the target density.
 
-        Parameters:
+        Parameters
         -----------
         x_constraint : float, optional, defualt=None
             Fixes the box length along the x axis
@@ -156,6 +158,12 @@ class System:
         lengths of the remaining non-constrained edges to match
         the target density.
 
+        Parameters
+        ----------
+        fixed_L : np.array, optional, defualt=None
+            Array of fixed box lengths to be accounted for
+            when solving for L
+
         """
         M = self.system_mass * units["amu_to_g"]  # grams
         vol = (M / self.density) # cm^3
@@ -169,7 +177,14 @@ class System:
         return L
 
     def _make_rigid_snapshot(self, mb_system):
-        """
+        """Handles requirements for setting up a snapshot
+        to run a rigid body simulation in Hoomd
+
+        Parameters
+        ----------
+        mb_system : required
+            mBuild system created in the pack and stack functions
+
         """
         init_snap = hoomd.Snapshot()
         num_rigid_bodies = self.n_beads 
