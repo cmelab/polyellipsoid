@@ -1,4 +1,4 @@
-from ellipsoid import Ellipsoid, Polymer
+from polyellipsoid import Ellipsoid, Polymer
 
 class System:
     """
@@ -32,6 +32,7 @@ class System:
         self.system_mass = bead_mass * self.n_beads
         self.target_box = None
         self.mb_system = None
+        self.snapshot = None
         
         self.chains = []
         for l in chain_lengths:
@@ -49,7 +50,6 @@ class System:
             self.chains.append(chain)
         assert len(self.chains) == len(self.n_chains)
 
-    @snapshot.setter
     def pack(self, box_expand_factor=3):
         """Uses mBuild's fill_box function to fill a cubic box
         with the ellipsoid chains. It may be necessary to expand
@@ -75,9 +75,8 @@ class System:
             edge=0.9,
             fix_orientation=True
         )
-		self.snapshot = self._make_rigid_snapshot(sytem)
+        self.snapshot = self._make_rigid_snapshot(sytem)
 
-    @snapshot.setter
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
 
@@ -111,9 +110,8 @@ class System:
         bounding_box = system.get_boundingbox().lengths
         target_z = bounding_box[-1] * z_axis_adjust
         self.set_target_box(z_constraint=target_z)
-		self.snapshot = self._make_rigid_snapshot(system)
+        self.snapshot = self._make_rigid_snapshot(system)
 
-    @target_box.setter
     def set_target_box(
             self,
             x_constraint=None,
@@ -197,11 +195,11 @@ class System:
         pair_idx = [(i,i+1) for i in range(
             self.n_beads, snapshot.particles.N, 2
         )]
-		# Set position of rigid centers, set rigid body attr	
-		for idx, pair in enumerate(pair_idx):
-			pos1 = snapshot.particles.position[pair[0]]
-			pos2 = snapshot.particles.position[pair[1]]
-			snapshot.particles.position[idx] = np.mean([pos1, pos2], axis=0)
-			snapshot.particles.body[idx] = idx
-			snapshot.particles.body[list(pair)] = idx * np.ones_like(pair)
-		return snapshot	
+        # Set position of rigid centers, set rigid body attr	
+        for idx, pair in enumerate(pair_idx):
+            pos1 = snapshot.particles.position[pair[0]]
+            pos2 = snapshot.particles.position[pair[1]]
+            snapshot.particles.position[idx] = np.mean([pos1, pos2], axis=0)
+            snapshot.particles.body[idx] = idx
+            snapshot.particles.body[list(pair)] = idx * np.ones_like(pair)
+        return snapshot	
