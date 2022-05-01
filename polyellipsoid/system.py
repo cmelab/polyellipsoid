@@ -4,6 +4,7 @@ class System:
     """
     """
     def __init__(
+            self,
             n_chains,
             chain_lengths,
             bead_mass,

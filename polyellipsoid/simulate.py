@@ -15,7 +15,6 @@ class Simulation:
             r_cut,
             bond_k,
             bond_r0,
-            integrator,
             seed,
             gsd_write,
             log_write,

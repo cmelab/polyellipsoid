@@ -1,0 +1,21 @@
+import os
+
+import pytest
+from polyellipsoid import Ellipsoid, Polymer, System
+
+class BaseTest:
+    @pytest.fixture(autouse=True)
+    def initdir(self, tmpdir):
+        tmpdir.chdir()
+    
+    @pytest.fixture
+    def packed_system(self):
+        sys = System(
+                n_chains=5,
+                chain_lengths=5,
+                bead_mass=5,
+                density=0.5,
+                bond_length=0.25,
+                axis_length=2
+        )
+        return sys
