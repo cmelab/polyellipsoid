@@ -14,7 +14,6 @@ class System:
             major_axis=[1,0,0],
             seed=42,
     ):
-        
         if not isinstance(n_chains, list):
             n_chains = [n_chains]
         if not isinstance(chain_lengths, list):
@@ -186,7 +185,6 @@ class System:
 
         """
         init_snap = hoomd.Snapshot()
-        num_rigid_bodies = self.n_beads 
         init_snap.particles.types = ["R"]
         init_snap.particles.N = self.n_beads
         snapshot, refs = to_hoomdsnapshot(
