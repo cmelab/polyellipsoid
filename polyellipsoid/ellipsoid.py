@@ -55,17 +55,14 @@ class Polymer(Polymer):
         super(Polymer, self).__init__()
     
     def add_bead(self, bead, bond_axis, separation):
-        particle_names = [p.name for p in bead.particles()]
         if bond_axis.lower() == "major":
-            tail_idx = np.where(np.array(particle_names) == "CT")[0][0]
-            head_idx = np.where(np.array(particle_names) == "CH")[0][0]
+            bead_indices = [0, 1]
             orientation = [bead.major_axis, -bead.major_axis]
         elif bond_axis.lower() == "minor":
-            tail_idx = np.where(np.array(particle_names) == "CL")[0][0]
-            head_idx = np.where(particle_names == "CR")[0][0]
+            bead_indices = [2, 3]
             orientation = [bead.minor_axis, -bead.minor_axis]
         
         self.add_monomer(
-            bead, [head_idx, tail_idx], separation, orientation, replace=False
+            bead, bead_indices, separation, orientation, replace=False
         )
 
