@@ -1,4 +1,13 @@
 from polyellipsoid import Ellipsoid, Polymer
+from polyellipsoid.utils import base_units
+
+import hoomd
+import mbuild as mb
+from mbuild.formats.hoomd_forcefield import to_hoomdsnapshot
+import numpy as np
+
+units = base_units.base_units()
+
 
 class System:
     """
@@ -68,14 +77,14 @@ class System:
             self.set_target_box()
         pack_box = self.target_box * box_expand_factor
         system = mb.packing.fill_box(
-            compounds=self.chains,
+            compound=self.chains,
             n_compounds=self.n_chains,
             box=list(pack_box),
             overlap=0.2,
             edge=0.9,
             fix_orientation=True
         )
-        self.snapshot = self._make_rigid_snapshot(sytem)
+        self.snapshot = self._make_rigid_snapshot(system)
 
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.

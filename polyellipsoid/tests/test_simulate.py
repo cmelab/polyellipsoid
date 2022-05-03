@@ -10,6 +10,7 @@ class TestSimulate(BaseTest):
                 system=packed_system,
                 lperp=1.0,
                 lpar=1.0,
+                epsilon=1.0,
                 tau=0.1,
                 dt=0.001,
                 r_cut=2.0,
