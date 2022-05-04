@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from polyellipsoid import Ellipsoid, Polymer, System
+from polyellipsoid import Ellipsoid, Polymer, System, Simulation
 
 class BaseTest:
     @pytest.fixture(autouse=True)
@@ -14,13 +14,42 @@ class BaseTest:
 
     @pytest.fixture
     def packed_system(self):
+        return self.make_system(method="pack")
+
+    @pytest.fixture
+    def stacked_system(self):
+        return self.make_system(method="stack")
+    
+    @pytest.fixture
+    def sim_init(self):
+        sys = self.make_system(method="pack")
+        sim = Simulation(
+                system=sys,
+                lperp=1.0,
+                lpar=1.0,
+                epsilon=1.0,
+                tau=0.1,
+                dt=0.001,
+                r_cut=2.0,
+                bond_k=1000,
+                bond_r0=0.25,
+                seed=42,
+                gsd_write=1000,
+                log_write=100
+        )
+        return sim
+
+    def make_system(self, method):
         sys = System(
                 n_chains=5,
                 chain_lengths=5,
                 bead_mass=1000,
-                density=0.5,
+                density=0.005,
                 bond_length=0.25,
                 axis_length=2
         )
-        sys.pack()
+        if method == "pack":
+            sys.pack(box_expand_factor=5)
+        elif method == "stack":
+            sys.stack(x=2, y=2, axis=[1,1,0], n=2)
         return sys

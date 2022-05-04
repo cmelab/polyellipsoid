@@ -88,7 +88,20 @@ class Simulation:
         Parameters
         ----------
         kT : float, required
-            Temperature during shrink steps
+            T        sim = Simulation(
+                system=packed_system,
+                lperp=1.0,
+                lpar=1.0,
+                epsilon=1.0,
+                tau=0.1,
+                dt=0.001,
+                r_cut=2.0,
+                bond_k=1000,
+                bond_r0=0.25,
+                seed=42,
+                gsd_write=1000,
+                log_write=100
+        )emperature during shrink steps
         n_steps : int, required
             Number of simulations steps during shrinking
         shrink_period : int, optional, default=10
@@ -111,7 +124,7 @@ class Simulation:
                 variant=ramp,
                 trigger=box_resize_trigger
         )
-        self.sim.operations.updates.append(box_resize)
+        self.sim.operations.updaters.append(box_resize)
         # Use NVT integrator during shrinking
         integrator_method = hoomd.md.methods.NVT(
                 filter=self.centers, kT=kT, tau=self.tau
@@ -142,8 +155,8 @@ class Simulation:
             self.integrator.methods = [integrator_method]
             self.sim.operations.add(self.integrator)
 
-        self.sim.state.thermalize_particle_momenta(filter=self.centres, kT=kT)
-        sim.run(n_steps)
+        self.sim.state.thermalize_particle_momenta(filter=self.centers, kT=kT)
+        self.sim.run(n_steps)
 
     def anneal(
             self,
@@ -188,4 +201,4 @@ class Simulation:
             self.sim.state.thermalize_particle_momenta(
                     filter=self.centers, kT=kT
             )
-            sim.run(schedule[kT])
+            self.sim.run(schedule[kT])

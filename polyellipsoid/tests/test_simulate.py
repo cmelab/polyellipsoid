@@ -20,3 +20,10 @@ class TestSimulate(BaseTest):
                 gsd_write=1000,
                 log_write=100
         )
+
+    def test_shrink(self, sim_init):
+        sim_init.shrink(n_steps=1e2, kT=1.0) 
+        
+    def test_quench(self, sim_init):
+        sim_init.quench(n_steps=1e3, kT=1.0) 
+        
