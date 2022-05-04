@@ -25,5 +25,11 @@ class TestSimulate(BaseTest):
         sim_init.shrink(n_steps=100, kT=1.0) 
         
     def test_quench(self, sim_init):
-        sim_init.quench(n_steps=1e3, kT=1.0) 
+        sim_init.quench(n_steps=5e2, kT=1.0) 
         
+    def test_anneal(self, sim_init):
+        sim_init.anneal(kT_init=1.0, kT_final=2.0, step_sequence=[100, 100, 100, 100])
+
+    def test_shrink_to_quench(self, sim_init):
+        sim_init.shrink(n_steps=100, kT=1.0)
+        sim_init.quench(n_steps=5e2, kT=1.0)
