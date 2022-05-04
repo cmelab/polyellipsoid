@@ -118,14 +118,14 @@ class Simulation:
         ramp = hoomd.variant.Ramp(
                 A=0, B=1, t_start=0, t_ramp=int(n_steps)
         )
-        target_box = hoomd.Box(
+        self.target_box = hoomd.Box(
                 Lx=self.system.target_box[0],
                 Ly=self.system.target_box[1],
                 Lz=self.system.target_box[2],
         )
         box_resize=hoomd.update.BoxResize(
                 box1=self.sim.state.box,
-                box2=target_box,
+                box2=self.target_box,
                 variant=ramp,
                 trigger=box_resize_trigger
         )

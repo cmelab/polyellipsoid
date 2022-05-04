@@ -25,16 +25,16 @@ class BaseTest:
         sys = self.make_system(method="pack")
         sim = Simulation(
                 system=sys,
-                lperp=1.0,
+                lperp=0.5,
                 lpar=1.0,
-                epsilon=1.0,
-                tau=0.1,
+                epsilon=100,
+                tau=0.01,
                 dt=0.001,
                 r_cut=2.0,
-                bond_k=1000,
+                bond_k=500000,
                 bond_r0=0.25,
                 seed=42,
-                gsd_write=1000,
+                gsd_write=10000,
                 log_write=100
         )
         return sim
@@ -43,7 +43,7 @@ class BaseTest:
         sys = System(
                 n_chains=5,
                 chain_lengths=5,
-                bead_mass=1000,
+                bead_mass=100,
                 density=0.05,
                 bond_length=0.25,
                 axis_length=2
