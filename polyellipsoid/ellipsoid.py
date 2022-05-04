@@ -17,7 +17,7 @@ class Ellipsoid(Compound):
         super(Ellipsoid, self).__init__(name=name)
         self.major_axis = np.array(major_axis)
         self.minor_axis = np.array(minor_axis)
-        self.major_length = major_length
+        self.major_length = float(major_length)
         self.minor_length = minor_length
         n_particles = 2
         if minor_length and minor_axis:
@@ -36,6 +36,7 @@ class Ellipsoid(Compound):
         )
         self.add([self.head, self.tail])
         
+        #TODO: Take this out until there is a need?
         if minor_length and minor_axis:
             self.right = Compound(
                     pos=self.minor_axis*self.minor_length/2,
@@ -49,12 +50,13 @@ class Ellipsoid(Compound):
             )
             self.add([self.right, self.left])
 
-
+#TODO: Do we even need this class right now?
 class Polymer(Polymer):
     def __init__(self):
         super(Polymer, self).__init__()
     
     def add_bead(self, bead, bond_axis, separation):
+        #TODO: Take out bond axis option?
         if bond_axis.lower() == "major":
             bead_indices = [0, 1]
             orientation = [bead.major_axis, -bead.major_axis]

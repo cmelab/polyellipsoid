@@ -91,12 +91,12 @@ class System:
         """Arranges chains in layers on an n x n lattice.
 
         """
-        if len(self.chains) != n*n*2:
+        if self.n_chains[0] != n*n*2:
             raise ValueError(
                     "Using this method creates a system of n x n "
                     "unit cells with each unit cell containing 2 molecules. "
                     "The number of molecules in the system should equal "
-                    "2*n*n."
+                    f"2*n*n. You have {self.n_chains[0]} number of chains."
             )
         next_idx = 0
         system = mb.Compound()

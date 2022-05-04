@@ -9,6 +9,10 @@ class BaseTest:
         tmpdir.chdir()
     
     @pytest.fixture
+    def bead(self):
+        return Ellipsoid("A", 100, 2)
+
+    @pytest.fixture
     def packed_system(self):
         sys = System(
                 n_chains=5,

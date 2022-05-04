@@ -37,7 +37,7 @@ class Simulation:
                 self.snapshot.particles.types[i] for
                 i in self.snapshot.particles.typeid[inds]
         ]
-        c_orient = [tuple(i) for i in self.snapshot.particles.orientaiton[inds]]
+        c_orient = [tuple(i) for i in self.snapshot.particles.orientation[inds]]
         c_charge = [i for i in self.snapshot.particles.charge[inds]]
         c_diam = [i for i in self.snapshot.particles.diameter[inds]]
         mass = np.array([self.system.bead_mass]*2)
@@ -53,7 +53,7 @@ class Simulation:
         }
         
         # Set up forces, GB pair and harmonic bond:
-        nl = hoomd.nlist.Cell(buffer=0.40)
+        nl = hoomd.md.nlist.Cell(buffer=0.40)
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
         gb.params[('R', 'R')] = dict(epsilon=epsilon, lperp=lperp, lpar=lpar)
         zero_pairs = [
