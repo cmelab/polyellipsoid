@@ -44,7 +44,7 @@ class BaseTest:
                 n_chains=5,
                 chain_lengths=5,
                 bead_mass=1000,
-                density=0.005,
+                density=0.05,
                 bond_length=0.25,
                 axis_length=2
         )

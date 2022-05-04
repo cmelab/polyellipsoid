@@ -26,6 +26,14 @@ class Simulation:
         self.gsd_write = gsd_write
         self.log_write = log_write
         self.ran_shrink = False
+        self.log_quantities = [
+            "kinetic_temperature",
+            "potential_energy",
+            "kinetic_energy",
+            "volume",
+            "pressure",
+            "pressure_tensor"
+        ]
         # Set up rigid object for Hoomd
         inds = [self.system.n_beads, self.system.n_beads + 1]
         rigid = hoomd.md.constrain.Rigid()
@@ -70,6 +78,7 @@ class Simulation:
         # Set up remaining Hoomd objects
         self.centers = hoomd.filter.Rigid()
         #TODO: Do we need the _all filter?
+        # Do we need _all for the writers?
         _all = hoomd.filter.All()
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
@@ -81,6 +90,9 @@ class Simulation:
                 device=hoomd.device.auto_select(), seed=seed
         )
         self.sim.create_state_from_snapshot(self.snapshot)
+        gsd_writer, table_file = self._hoomd_writers(
+                group=_all, sim=self.sim, forcefields=[gb, harmonic]
+        )
 
     def shrink(self, kT, n_steps, shrink_period=10):
         """Run a shrink simulation to reach a target volume.
@@ -202,3 +214,29 @@ class Simulation:
                     filter=self.centers, kT=kT
             )
             self.sim.run(schedule[kT])
+
+    def _hoomd_writers(self, group, forcefields, sim):
+        # GSD and Logging:
+        writemode = "w"
+        gsd_writer = hoomd.write.GSD(
+                filename="sim_traj.gsd",
+                trigger=hoomd.trigger.Periodic(int(self.gsd_write)),
+                mode=f"{writemode}b",
+                dynamic=["momentum"]
+        )
+
+        logger = hoomd.logging.Logger(categories=["scalar", "string"])
+        logger.add(sim, quantities=["timestep", "tps"])
+        thermo_props = hoomd.md.compute.ThermodynamicQuantities(filter=group)
+        sim.operations.computes.append(thermo_props)
+        logger.add(thermo_props, quantities=self.log_quantities)
+        for f in forcefields:
+            logger.add(f, quantities=["energy"])
+
+        table_file = hoomd.write.Table(
+            output=open("sim_traj.txt", mode=f"{writemode}", newline="\n"),
+            trigger=hoomd.trigger.Periodic(period=int(self.log_write)),
+            logger=logger,
+            max_header_len=None,
+        )
+        return gsd_writer, table_file
