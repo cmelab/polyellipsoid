@@ -34,32 +34,12 @@ class Simulation:
             "pressure",
             "pressure_tensor"
         ]
-        # Set up rigid object for Hoomd
-        inds = [self.system.n_beads, self.system.n_beads + 1]
-        rigid = hoomd.md.constrain.Rigid()
-        r_pos = self.snapshot.particles.position[0]
-        c_pos = self.snapshot.particles.position[inds]
-        c_pos -= r_pos
-        c_pos = [tuple(i) for i in c_pos]
-        c_types = [
-                self.snapshot.particles.types[i] for
-                i in self.snapshot.particles.typeid[inds]
-        ]
-        c_orient = [tuple(i) for i in self.snapshot.particles.orientation[inds]]
-        c_charge = [i for i in self.snapshot.particles.charge[inds]]
-        c_diam = [i for i in self.snapshot.particles.diameter[inds]]
-        mass = np.array([self.system.bead_mass]*2)
-        moits = moit(c_pos, mass)
-        self.snapshot.particles.moment_inertia[0:system.n_beads] = moits
+        # Set up sim object
+        self.sim = hoomd.Simulation(
+                device=hoomd.device.auto_select(), seed=seed
+        )
+        self.sim.create_state_from_snapshot(self.snapshot)
 
-        rigid.body["R"] = {
-                "constituent_types": c_types,
-                "positions": c_pos,
-                "orientations": c_orient,
-                "charges": c_charge,
-                "diameters": c_diam
-        }
-        
         # Set up forces, GB pair and harmonic bond:
         nl = hoomd.md.nlist.Cell(buffer=0.40)
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
@@ -75,23 +55,47 @@ class Simulation:
         harmonic.params["CT-CH"] = dict(k=bond_k, r0=bond_r0)
         harmonic.params["CH-CT"] = dict(k=bond_k, r0=bond_r0)
 
-        # Set up remaining Hoomd objects
+        # Set up rigid object for Hoomd
+        # Find the first 2 non-rigid particles (i.e. constiuent particles)
+        inds = [self.system.n_beads, self.system.n_beads + 1]
+        rigid = hoomd.md.constrain.Rigid()
+        r_pos = self.snapshot.particles.position[0]
+        c_pos = self.snapshot.particles.position[inds]
+        c_pos -= r_pos
+        c_pos = [tuple(i) for i in c_pos]
+        c_types = [
+                self.snapshot.particles.types[i] for
+                i in self.snapshot.particles.typeid[inds]
+        ]
+        c_orient = [tuple(i) for i in self.snapshot.particles.orientation[inds]]
+        c_charge = [i for i in self.snapshot.particles.charge[inds]]
+        c_diam = [i for i in self.snapshot.particles.diameter[inds]]
+        mass = np.array([self.system.bead_mass/2]*2)
+        _moit = moit(c_pos, mass)
+        self.snapshot.particles.moment_inertia[0:system.n_beads] = _moit
+
+        rigid.body["R"] = {
+                "constituent_types": c_types,
+                "positions": c_pos,
+                "orientations": c_orient,
+                "charges": c_charge,
+                "diameters": c_diam
+        }
+        
+        # Set up hoomd groups 
         self.centers = hoomd.filter.Rigid()
-        #TODO: Do we need the _all filter?
-        # Do we need _all for the writers?
-        _all = hoomd.filter.All()
+        self.all = hoomd.filter.All()
+
+        # Set up integrator; method is added in the 3 sim functions
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
         )
-        self.integrator.rigid=rigid
         self.integrator.forces = [gb, harmonic]
-        # Set up sim object
-        self.sim = hoomd.Simulation(
-                device=hoomd.device.auto_select(), seed=seed
-        )
-        self.sim.create_state_from_snapshot(self.snapshot)
+        self.integrator.rigid=rigid
+
+        # Set up gsd and log writers
         gsd_writer, table_file = self._hoomd_writers(
-                group=_all, forcefields=[gb, harmonic]
+                group=self.all, forcefields=[gb, harmonic]
         )
         self.sim.operations.writers.append(gsd_writer)
         self.sim.operations.writers.append(table_file)
@@ -126,6 +130,7 @@ class Simulation:
                 trigger=box_resize_trigger
         )
         self.sim.operations.updaters.append(box_resize)
+
         # Use NVT integrator during shrinking
         integrator_method = hoomd.md.methods.NVT(
                 filter=self.centers, kT=kT, tau=self.tau

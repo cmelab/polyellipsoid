@@ -59,7 +59,7 @@ class System:
             self.chains.append(chain)
         assert len(self.chains) == len(self.n_chains)
 
-    def pack(self, box_expand_factor=3):
+    def pack(self, box_expand_factor=5):
         """Uses mBuild's fill_box function to fill a cubic box
         with the ellipsoid chains. It may be necessary to expand
         the system volume during the packing step, and handling
@@ -67,7 +67,7 @@ class System:
 
         Parameters
         ----------
-        box_expand_factor : float, default=3
+        box_expand_factor : float, default=5
             The factor by which to expand the box edge lengths during
             the packing step. If PACKMOL fails, you may need to
             increase this parameter.
@@ -84,6 +84,7 @@ class System:
             edge=0.9,
             fix_orientation=True
         )
+        # TODO: Remove this attribute, using now for easy visualizing
         self.mb_system = system
         self.snapshot = self._make_rigid_snapshot(system)
 
@@ -208,6 +209,7 @@ class System:
         for idx, pair in enumerate(pair_idx):
             pos1 = snapshot.particles.position[pair[0]]
             pos2 = snapshot.particles.position[pair[1]]
+            # Update rigid center position based on its constituent particles
             snapshot.particles.position[idx] = np.mean([pos1, pos2], axis=0)
             snapshot.particles.body[idx] = idx
             snapshot.particles.body[list(pair)] = idx * np.ones_like(pair)
