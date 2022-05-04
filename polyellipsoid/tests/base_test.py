@@ -27,7 +27,7 @@ class BaseTest:
                 system=sys,
                 lperp=0.5,
                 lpar=1.0,
-                epsilon=100,
+                epsilon=1000,
                 tau=0.01,
                 dt=0.001,
                 r_cut=2.0,
@@ -43,8 +43,8 @@ class BaseTest:
         sys = System(
                 n_chains=5,
                 chain_lengths=5,
-                bead_mass=100,
-                density=0.05,
+                bead_mass=1000,
+                density=0.005,
                 bond_length=0.25,
                 axis_length=2
         )
