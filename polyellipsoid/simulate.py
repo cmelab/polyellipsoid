@@ -72,7 +72,7 @@ class Simulation:
         c_diam = [i for i in self.snapshot.particles.diameter[inds]]
         mass = np.array([self.system.bead_mass/2]*2)
         _moit = moit(c_pos, mass)
-        self.snapshot.particles.moment_inertia[0:system.n_beads] = _moit
+        self.snapshot.particles.moment_inertia[0:self.system.n_beads] = _moit
 
         rigid.body["R"] = {
                 "constituent_types": c_types,
