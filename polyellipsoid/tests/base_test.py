@@ -27,12 +27,12 @@ class BaseTest:
                 system=sys,
                 lperp=0.5,
                 lpar=1.0,
-                epsilon=1000,
+                epsilon=5,
                 tau=0.01,
                 dt=0.001,
-                r_cut=2.0,
-                bond_k=500000,
-                bond_r0=0.25,
+                r_cut=2.5,
+                bond_k=100000,
+                bond_r0=0.10,
                 seed=42,
                 gsd_write=10000,
                 log_write=100
@@ -41,12 +41,12 @@ class BaseTest:
 
     def make_system(self, method):
         sys = System(
-                n_chains=5,
+                n_chains=20,
                 chain_lengths=5,
-                bead_mass=1000,
-                density=0.005,
-                bond_length=0.25,
-                axis_length=2
+                bead_mass=100,
+                density=0.05,
+                bond_length=0.10,
+                axis_length=1
         )
         if method == "pack":
             sys.pack(box_expand_factor=5)
