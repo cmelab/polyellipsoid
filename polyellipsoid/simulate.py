@@ -91,8 +91,10 @@ class Simulation:
         )
         self.sim.create_state_from_snapshot(self.snapshot)
         gsd_writer, table_file = self._hoomd_writers(
-                group=_all, sim=self.sim, forcefields=[gb, harmonic]
+                group=_all, forcefields=[gb, harmonic]
         )
+        self.sim.operations.writers.append(gsd_writer)
+        self.sim.operations.writers.append(table_file)
 
     def shrink(self, kT, n_steps, shrink_period=10):
         """Run a shrink simulation to reach a target volume.
@@ -202,7 +204,7 @@ class Simulation:
             )
             self.sim.run(schedule[kT])
 
-    def _hoomd_writers(self, group, forcefields, sim):
+    def _hoomd_writers(self, group, forcefields):
         # GSD and Logging:
         writemode = "w"
         gsd_writer = hoomd.write.GSD(
@@ -213,9 +215,9 @@ class Simulation:
         )
 
         logger = hoomd.logging.Logger(categories=["scalar", "string"])
-        logger.add(sim, quantities=["timestep", "tps"])
+        logger.add(self.sim, quantities=["timestep", "tps"])
         thermo_props = hoomd.md.compute.ThermodynamicQuantities(filter=group)
-        sim.operations.computes.append(thermo_props)
+        self.sim.operations.computes.append(thermo_props)
         logger.add(thermo_props, quantities=self.log_quantities)
         for f in forcefields:
             logger.add(f, quantities=["energy"])
