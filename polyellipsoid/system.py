@@ -55,7 +55,7 @@ class System:
             chain.add_bead(
                     bead=ellipsoid, bond_axis="major", separation=bond_length
             )
-            chain.build(n=l)
+            chain.build(n=l, add_hydrogens=False)
             self.chains.append(chain)
         assert len(self.chains) == len(self.n_chains)
 
@@ -84,6 +84,7 @@ class System:
             edge=0.9,
             fix_orientation=True
         )
+        self.mb_system = system
         self.snapshot = self._make_rigid_snapshot(system)
 
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
