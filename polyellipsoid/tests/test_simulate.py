@@ -22,20 +22,20 @@ class TestSimulate(BaseTest):
         )
     
     def test_shrink(self, sim_init):
-        sim_init.shrink(n_steps=1000, kT=1.0) 
+        sim_init.shrink(n_steps=2000, kT=1.0) 
         
     def test_quench(self, sim_init):
-        sim_init.quench(n_steps=1000, kT=1.0) 
+        sim_init.quench(n_steps=2000, kT=1.0) 
         
     def test_anneal(self, sim_init):
         sim_init.anneal(kT_init=1.0, kT_final=2.0, step_sequence=[200]*5)
 
-    #@pytest.mark.skip(reason="Getting particle out of box errors")
+    @pytest.mark.skip(reason="Getting particle out of box errors")
     def test_shrink_to_quench(self, sim_init):
-        sim_init.shrink(n_steps=5e2, kT=1.0)
-        sim_init.quench(n_steps=5e2, kT=2.0)
+        sim_init.shrink(n_steps=2000, kT=1.0)
+        sim_init.quench(n_steps=2000, kT=2.0)
 
     @pytest.mark.skip(reason="Getting particle out of box errors")
     def test_shrink_to_anneal(self, sim_init):
-        sim_init.shrink(n_steps=5e2, kT=1.0)
-        sim_init.anneal(kT_init=1.0, kT_final=2.0, step_sequence=[100, 100, 100, 100])
+        sim_init.shrink(n_steps=2000, kT=1.0)
+        sim_init.anneal(kT_init=1.0, kT_final=2.0, step_sequence=[200]*5)

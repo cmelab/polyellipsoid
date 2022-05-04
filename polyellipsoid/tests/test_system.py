@@ -8,10 +8,10 @@ import pytest
 class TestSystem(BaseTest):
     
     def test_n_beads(self, packed_system):
-        assert packed_system.n_beads == 25
+        assert packed_system.n_beads == 100 
 
     def test_mass(self, packed_system):
-        assert packed_system.system_mass == packed_system.bead_mass * 25
+        assert packed_system.system_mass == packed_system.bead_mass * 100 
 
     def test_bad_n_chains(self):
         with pytest.raises(AssertionError):
@@ -50,7 +50,7 @@ class TestSystem(BaseTest):
     def test_rigid_body_count(self, packed_system):
         ids = packed_system.snapshot.particles.typeid
         num_rigid = np.count_nonzero(ids == 0)
-        assert num_rigid == 25
+        assert num_rigid == 100 
 
         for i in range(0, num_rigid):
             assert packed_system.snapshot.particles.types[ids[i]] == "R"
