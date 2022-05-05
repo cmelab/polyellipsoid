@@ -34,6 +34,7 @@ class System:
         self.n_chains = n_chains
         self.chain_lengths = chain_lengths
         self.bead_mass = bead_mass
+        self.bond_length = bond_length
         self.density = density
         self.axis_length = axis_length
         self.major_axis = major_axis
@@ -53,11 +54,12 @@ class System:
             )
             chain = Polymer()
             chain.add_bead(
-                    bead=ellipsoid, bond_axis="major", separation=bond_length
+                    bead=ellipsoid,
+                    bond_axis="major",
+                    separation=self.bond_length
             )
             chain.build(n=l, add_hydrogens=False)
             self.chains.append(chain)
-        assert len(self.chains) == len(self.n_chains)
 
     def pack(self, box_expand_factor=5):
         """Uses mBuild's fill_box function to fill a cubic box

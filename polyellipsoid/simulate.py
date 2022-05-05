@@ -1,9 +1,49 @@
 from cmeutils.geometry import moit
+
 import hoomd
 import numpy as np
 
+
 class Simulation:
-    """
+    """Simulation initialization class.
+
+    Parameters
+    ----------
+    system : polyellipsoid.system.System, required
+        System containing initial snapshot
+    epsilon : float, required
+        Energy value for Gay-Berne pair potential
+    lperp : float, required
+        Perpendicular length for Gay-Berne pair potential
+    lpar : float, required
+        Parallel length for Gay-Berne pair potential
+    bond_k : float, required
+        Spring constant for hoomd.md.bond.Harmonic force
+    r_cut : float, required
+        Cutoff radius for potentials (in simulation distance units)
+    tau : float, optional, default 0.1
+        Thermostat coupling period (in simulation time units)
+    dt : float, optional, default 0.001
+        Size of simulation timestep (in simulation time units)
+    seed : int, optional, default 21
+        Seed passed to integrator when randomizing velocities.
+    gsd_write : int, default 1e4
+        Period to write simulation snapshots to gsd file.
+    log_write : int, default 1e3
+        Period to write simulation data to the log file.
+
+    Methods
+    -------
+    shrink : Runs a Hoomd simulation
+        Run a shrink simulation to reduce simulation volume to match
+        the target box set by system.target_box
+    quench : Runs a Hoomd simulation
+        Run a simulation at a single temperature in NVT
+    anneal : Runs a Hoomd simulation
+        Define a schedule of temperature and steps to follow over the
+        course of the simulation. Can be used in NVT or NPT at a single
+        pressure.
+
     """
     def __init__(
             self,
@@ -11,14 +51,13 @@ class Simulation:
             epsilon,
             lperp,
             lpar,
-            tau,
-            dt,
-            r_cut,
             bond_k,
-            bond_r0,
-            seed,
-            gsd_write,
-            log_write,
+            r_cut,
+            tau=0.1,
+            dt=0.001,
+            seed=21,
+            gsd_write=1e4,
+            log_write=1e3,
     ):
         self.system = system
         self.snapshot = system.snapshot
@@ -52,8 +91,8 @@ class Simulation:
         
         # Set up harmonic bond force
         harmonic = hoomd.md.bond.Harmonic()
-        harmonic.params["CT-CH"] = dict(k=bond_k, r0=bond_r0)
-        harmonic.params["CH-CT"] = dict(k=bond_k, r0=bond_r0)
+        harmonic.params["CT-CH"] = dict(k=bond_k, r0=self.system.bond_length)
+        harmonic.params["CH-CT"] = dict(k=bond_k, r0=self.system.bond_length)
 
         # Set up rigid object for Hoomd
         # Find the first 2 non-rigid particles (i.e. constiuent particles)
@@ -210,6 +249,7 @@ class Simulation:
             self.sim.run(schedule[kT])
 
     def _hoomd_writers(self, group, forcefields):
+        """Creates gsd and log writers"""
         # GSD and Logging:
         writemode = "w"
         gsd_writer = hoomd.write.GSD(

@@ -15,7 +15,6 @@ class TestSimulate(BaseTest):
                 dt=0.001,
                 r_cut=2.0,
                 bond_k=1000,
-                bond_r0=0.25,
                 seed=42,
                 gsd_write=1000,
                 log_write=100

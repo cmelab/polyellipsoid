@@ -32,7 +32,6 @@ class BaseTest:
                 dt=0.001,
                 r_cut=2.5,
                 bond_k=100000,
-                bond_r0=0.10,
                 seed=42,
                 gsd_write=10000,
                 log_write=100
