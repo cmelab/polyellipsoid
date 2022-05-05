@@ -2,6 +2,7 @@ name: polyellipsoid
 channels:
   - conda-forge
 dependencies:
+  - cmeutils=0.0.2
   - freud=2.9.0
   - gsd=2.5.1
   - hoomd=*=*gpu*
@@ -11,5 +12,3 @@ dependencies:
   - pytest
   - pytest-cov
   - python=3.9
-  - pip:
-      - git+https://github.com/cmelab/cmeutils.git@master
