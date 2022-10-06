@@ -6,7 +6,7 @@ class Ellipsoid(Compound):
             self, mass, length, name="dimer"
     ):
         super(Ellipsoid, self).__init__(name=name)
-        self.length = float(major_length)
+        self.length = float(length)
         n_particles = 2
         # Create the constituent particles
         self.head = Compound(

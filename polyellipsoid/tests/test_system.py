@@ -21,7 +21,7 @@ class TestSystem(BaseTest):
                     bead_mass=1000,
                     density=0.5,
                     bond_length=0.25,
-                    axis_length=2
+                    bead_length=2
             )
 
         with pytest.raises(AssertionError):
@@ -31,7 +31,7 @@ class TestSystem(BaseTest):
                     bead_mass=1000,
                     density=0.5,
                     bond_length=0.25,
-                    axis_length=2
+                    bead_length=2
             )
 
 
@@ -41,7 +41,7 @@ class TestSystem(BaseTest):
                 chain_lengths=[4, 5],
                 bead_mass=1000,
                 density=0.5,
-                axis_length=2,
+                bead_length=2,
                 bond_length=0.2
         )
         assert len(sys.chains) == 2
@@ -65,7 +65,7 @@ class TestSystem(BaseTest):
                 bead_mass=1000,
                 density=0.5,
                 bond_length=0.25,
-                axis_length=2
+                bead_length=2
         )
         sys.pack()
         assert isinstance(sys.snapshot, hoomd.snapshot.Snapshot)
@@ -78,7 +78,7 @@ class TestSystem(BaseTest):
                 bead_mass=1000,
                 density=0.5,
                 bond_length=0.25,
-                axis_length=2
+                bead_length=2
         )
         sys.stack(x=1, y=1, n=2, vector=[1,1,0])
         assert isinstance(sys.snapshot, hoomd.snapshot.Snapshot)
@@ -91,7 +91,7 @@ class TestSystem(BaseTest):
                 bead_mass=1000,
                 density=0.5,
                 bond_length=0.25,
-                axis_length=2
+                bead_length=2
         )
         with pytest.raises(ValueError):
             sys.stack(x=1, y=1, n=2, vector=[1,1,0])
