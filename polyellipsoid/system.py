@@ -19,7 +19,7 @@ class System:
             bead_length,
             bead_mass,
             density,
-            bond_length0.01,
+            bond_length=.01,
             seed=42,
     ):
         if not isinstance(n_chains, list):
