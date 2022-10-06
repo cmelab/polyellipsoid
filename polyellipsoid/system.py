@@ -83,7 +83,6 @@ class System:
             fix_orientation=True
         )
         self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
-        self.snapshot = self._make_rigid_snapshot()
 
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
@@ -119,7 +118,6 @@ class System:
         target_z = bounding_box[-1] * z_axis_adjust
         self.set_target_box(z_constraint=target_z)
         self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
-        self.snapshot = self._make_rigid_snapshot()
 
     def set_target_box(
             self,
@@ -183,12 +181,13 @@ class System:
         L *= units["cm_to_nm"]  # convert cm to nm
         return L
 
-    def _make_rigid_snapshot(self):
-        """Creates template snapshot with rigid particle placeholders."""
-        init_snap = hoomd.Snapshot()
-        init_snap.particles.types = ["R"]
-        init_snap.particles.N = self.n_beads
-        snapshot, refs = to_hoomdsnapshot(
-                self.mb_system, hoomd_snapshot=init_snap
-        )
-        return snapshot	
+#TODO: Remove this after testing it out and looking at some trajectories
+#    def _make_rigid_snapshot(self):
+#        """Creates template snapshot with rigid particle placeholders."""
+#        init_snap = hoomd.Snapshot()
+#        init_snap.particles.types = ["R"]
+#        init_snap.particles.N = self.n_beads
+#        snapshot, refs = to_hoomdsnapshot(
+#                self.mb_system, hoomd_snapshot=init_snap
+#        )
+#        return snapshot	

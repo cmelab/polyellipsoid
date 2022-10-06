@@ -1,5 +1,6 @@
 from cmeutils.geometry import moit
 from cmeutils.gsd_utils import create_rigid_snapshot, update_rigid_snapshot
+from mbuild.formats.hoomd_forcefield import to_hoomdsnapshot
 
 import hoomd
 import numpy as np
@@ -106,11 +107,11 @@ class Simulation:
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
         )
-        self.integrator.forces = [gb, harmonic]
-        self.integrator.rigid = rigid
+        self.integrator.forces = [gb, harmonic_bond]
+        self.integrator.rigid = self.rigid
         # Set up gsd and log writers
         gsd_writer, table_file = self._hoomd_writers(
-                group=self.all, forcefields=[gb, harmonic]
+                group=self.all, forcefields=[gb, harmonic_bond]
         )
         self.sim.operations.writers.append(gsd_writer)
         self.sim.operations.writers.append(table_file)
@@ -220,7 +221,7 @@ class Simulation:
         for kT in schedule:
             self.integrator.methods[0].kT = kT
             self.sim.state.thermalize_particle_momenta(
-                    filter=self.centers, kT=kT
+                    filter=self.all, kT=kT
             )
             self.sim.run(schedule[kT])
 
