@@ -10,12 +10,12 @@ class Ellipsoid(Compound):
         n_particles = 2
         # Create the constituent particles
         self.head = Compound(
-                pos=[self.length/2, 0, 0]
+                pos=[self.length/2, 0, 0],
                 name="CH",
                 mass=mass/2
         )
         self.tail = Compound(
-                pos=[-self.length/2, 0, 0]
+                pos=[-self.length/2, 0, 0],
                 name="CT",
                 mass=mass/2
         )

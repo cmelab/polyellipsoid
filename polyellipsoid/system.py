@@ -93,7 +93,7 @@ class System:
                     "Using this method creates a system of n x n "
                     "unit cells with each unit cell containing 2 molecules. "
                     "The number of molecules in the system should equal "
-                    f"2*n*n. You have {sum(self.n_chains} number of chains."
+                    f"2*n*n. You have {sum(self.n_chains)} number of chains."
             )
         next_idx = 0
         self.mb_system = mb.Compound()
