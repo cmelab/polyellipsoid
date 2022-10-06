@@ -1,4 +1,5 @@
 from cmeutils.geometry import moit
+from cmeutils.gsd_utils import create_rigid_snapshot, update_rigid_snapshot
 
 import hoomd
 import numpy as np
@@ -60,7 +61,13 @@ class Simulation:
             log_write=1e3,
     ):
         self.system = system
-        self.snapshot = system.snapshot
+        init_snap = create_rigid_snapshot(system.mb_system)
+        _snapshot, refs = to_hoomdsnapshot(
+                system.mb_system, hoomd_snapshot=init_snap
+        )
+        self.snapshot, self.rigid = update_rigid_snapshot(
+                snapshot=_snapshot, mb_compound=system.mb_system
+        )
         self.tau = tau
         self.gsd_write = gsd_write
         self.log_write = log_write
@@ -88,50 +95,19 @@ class Simulation:
         ]
         for pair in zero_pairs:
             gb.params[pair] = dict(epsilon=0.0, lperp=0.0, lpar=0.0)
-        
         # Set up harmonic bond force
-        harmonic = hoomd.md.bond.Harmonic()
-        harmonic.params["CT-CH"] = dict(k=bond_k, r0=self.system.bond_length)
-        harmonic.params["CH-CT"] = dict(k=bond_k, r0=self.system.bond_length)
-
-        # Set up rigid object for Hoomd
-        # Find the first 2 non-rigid particles (i.e. constiuent particles)
-        inds = [self.system.n_beads, self.system.n_beads + 1]
-        rigid = hoomd.md.constrain.Rigid()
-        r_pos = self.snapshot.particles.position[0]
-        c_pos = self.snapshot.particles.position[inds]
-        c_pos -= r_pos
-        c_pos = [tuple(i) for i in c_pos]
-        c_types = [
-                self.snapshot.particles.types[i] for
-                i in self.snapshot.particles.typeid[inds]
-        ]
-        c_orient = [tuple(i) for i in self.snapshot.particles.orientation[inds]]
-        c_charge = [i for i in self.snapshot.particles.charge[inds]]
-        c_diam = [i for i in self.snapshot.particles.diameter[inds]]
-        mass = np.array([self.system.bead_mass/2]*2)
-        _moit = moit(c_pos, mass)
-        self.snapshot.particles.moment_inertia[0:self.system.n_beads] = _moit
-
-        rigid.body["R"] = {
-                "constituent_types": c_types,
-                "positions": c_pos,
-                "orientations": c_orient,
-                "charges": c_charge,
-                "diameters": c_diam
-        }
-        
+        harmonic_bond = hoomd.md.bond.Harmonic()
+        harmonic_bond.params["CH-CT"] = dict(
+                k=bond_k, r0=self.system.bond_length
+        )
         # Set up hoomd groups 
-        self.centers = hoomd.filter.Rigid()
-        self.all = hoomd.filter.All()
-
+        self.all = hoomd.filter.Rigid(("center", "free"))
         # Set up integrator; method is added in the 3 sim functions
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
         )
         self.integrator.forces = [gb, harmonic]
-        self.integrator.rigid=rigid
-
+        self.integrator.rigid = rigid
         # Set up gsd and log writers
         gsd_writer, table_file = self._hoomd_writers(
                 group=self.all, forcefields=[gb, harmonic]
@@ -172,11 +148,11 @@ class Simulation:
 
         # Use NVT integrator during shrinking
         integrator_method = hoomd.md.methods.NVT(
-                filter=self.centers, kT=kT, tau=self.tau
+                filter=self.all, kT=kT, tau=self.tau
         )
         self.integrator.methods = [integrator_method]
         self.sim.operations.add(self.integrator)
-        self.sim.state.thermalize_particle_momenta(filter=self.centers, kT=kT)
+        self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
         self.sim.run(n_steps + 1) 
         self.ran_shrink = True
 
@@ -195,12 +171,12 @@ class Simulation:
             self.integrator.methods[0].kT = kT
         else: # Shrink not ran, add integrator method
             integrator_method = hoomd.md.methods.NVT(
-                    filter=self.centers, kT=kT, tau=self.tau
+                    filter=self.all, kT=kT, tau=self.tau
             )
             self.integrator.methods = [integrator_method]
             self.sim.operations.add(self.integrator)
 
-        self.sim.state.thermalize_particle_momenta(filter=self.centers, kT=kT)
+        self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
         self.sim.run(n_steps)
 
     def anneal(
@@ -231,7 +207,7 @@ class Simulation:
         """
         if not self.ran_shrink: # Shrink not ran, add integrator method
             integrator_method = hoomd.md.methods.NVT(
-                    filter=self.centers, kT=1.0, tau=self.tau
+                    filter=self.all, kT=1.0, tau=self.tau
             )
             self.integrator.methods = [integrator_method]
             self.sim.operations.add(self.integrator)
