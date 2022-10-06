@@ -2,13 +2,12 @@ name: polyellipsoid
 channels:
   - conda-forge
 dependencies:
-  - cmeutils=0.0.2
-  - freud=2.9.0
-  - gsd=2.5.1
+  - freud
+  - gsd
   - hoomd=*=*cpu*
-  - mbuild=0.14.2
-  - numpy=1.22
-  - pip=22.0.4
+  - mbuild
+  - numpy
+  - pip
   - pytest
   - pytest-cov
-  - python=3.9
+  - python
