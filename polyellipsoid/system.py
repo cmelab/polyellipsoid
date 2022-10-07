@@ -44,18 +44,21 @@ class System:
         self.snapshot = None
         
         self.chains = []
-        for l in chain_lengths:
-            ellipsoid = Ellipsoid(mass=self.bead_mass, length=self.bead_length)
-            chain = Polymer()
-            chain.add_monomer(
-                    ellipsoid,
-                    indices=[0, 1],
-                    orientation=[[1,0,0], [-1,0,0]],
-                    replace=False,
-                    separation=self.bond_length
-            )
-            chain.build(n=l, add_hydrogens=False)
-            self.chains.append(chain)
+        for n, l in zip(n_chains, chain_lengths):
+            for i in range(n):
+                ellipsoid = Ellipsoid(
+                        mass=self.bead_mass, length=self.bead_length
+                )
+                chain = Polymer()
+                chain.add_monomer(
+                        ellipsoid,
+                        indices=[0, 1],
+                        orientation=[[1,0,0], [-1,0,0]],
+                        replace=False,
+                        separation=self.bond_length
+                )
+                chain.build(n=l, add_hydrogens=False)
+                self.chains.append(chain)
 
     def pack(self, box_expand_factor=5):
         """Uses mBuild's fill_box function to fill a cubic box
@@ -76,7 +79,7 @@ class System:
         pack_box = self.target_box * box_expand_factor
         self.mb_system = mb.packing.fill_box(
             compound=self.chains,
-            n_compounds=self.n_chains,
+            n_compounds=[1 for i in self.chains],
             box=list(pack_box),
             overlap=0.2,
             edge=0.9,
