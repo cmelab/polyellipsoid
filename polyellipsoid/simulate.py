@@ -56,7 +56,7 @@ class Simulation:
             bond_k,
             r_cut,
             tau=0.1,
-            dt=0.001,
+            dt=0.0001,
             seed=21,
             gsd_write=1e4,
             log_write=1e3,
@@ -178,7 +178,7 @@ class Simulation:
             self.sim.operations.add(self.integrator)
 
         self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-        self.sim.run(n_steps)
+        self.sim.run(n_steps, write_at_start=True)
 
     def anneal(
             self,

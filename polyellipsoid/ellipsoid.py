@@ -7,15 +7,14 @@ class Ellipsoid(Compound):
     ):
         super(Ellipsoid, self).__init__(name=name)
         self.length = float(length)
-        n_particles = 2
         # Create the constituent particles
         self.head = Compound(
-                pos=[self.length/2, 0, 0],
+                pos=[0, 0, self.length/2],
                 name="CH",
                 mass=mass/2
         )
         self.tail = Compound(
-                pos=[-self.length/2, 0, 0],
+                pos=[0, 0, -self.length/2],
                 name="CT",
                 mass=mass/2
         )

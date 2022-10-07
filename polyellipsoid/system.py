@@ -41,7 +41,6 @@ class System:
         self.system_mass = bead_mass * self.n_beads
         self.target_box = None
         self.mb_system = None
-        self.snapshot = None
         
         self.chains = []
         for n, l in zip(n_chains, chain_lengths):
@@ -53,7 +52,7 @@ class System:
                 chain.add_monomer(
                         ellipsoid,
                         indices=[0, 1],
-                        orientation=[[1,0,0], [-1,0,0]],
+                        orientation=[[-1,0,0], [1,0,0]],
                         replace=False,
                         separation=self.bond_length
                 )
@@ -82,7 +81,7 @@ class System:
             n_compounds=[1 for i in self.chains],
             box=list(pack_box),
             overlap=0.2,
-            edge=0.9,
+            edge=0.2,
             fix_orientation=True
         )
         self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
@@ -107,7 +106,7 @@ class System:
                     chain1 = self.chains[next_idx]
                     chain2 = self.chains[next_idx + 1]
                     translate_by = np.array(vector)*(x, y, 0)
-                    chain2.translate_by(translate_by)
+                    chain2.translate(translate_by)
                     cell = mb.Compound(subcompounds=[chain1, chain2])
                     cell.translate((0, y*j, 0))
                     layer.add(cell)
@@ -117,9 +116,18 @@ class System:
             layer.translate((x*i, 0, 0)) # shift layers along x dir
             self.mb_system.add(layer)
 
-        bounding_box = self.mb_system.get_boundingbox().lengths
+        bounding_box = np.array(self.mb_system.get_boundingbox().lengths)
+        bounding_box *= 1.10
         target_z = bounding_box[-1] * z_axis_adjust
+        self.mb_system.box = mb.box.Box(bounding_box)
         self.set_target_box(z_constraint=target_z)
+        self.mb_system.translate_to(
+                (
+                    self.mb_system.box.Lx/2,
+                    self.mb_system.box.Ly/2,
+                    self.mb_system.box.Lz/2
+                )
+        )
         self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
 
     def set_target_box(
@@ -183,14 +191,3 @@ class System:
                 L = L**(1/2)
         L *= units["cm_to_nm"]  # convert cm to nm
         return L
-
-#TODO: Remove this after testing it out and looking at some trajectories
-#    def _make_rigid_snapshot(self):
-#        """Creates template snapshot with rigid particle placeholders."""
-#        init_snap = hoomd.Snapshot()
-#        init_snap.particles.types = ["R"]
-#        init_snap.particles.N = self.n_beads
-#        snapshot, refs = to_hoomdsnapshot(
-#                self.mb_system, hoomd_snapshot=init_snap
-#        )
-#        return snapshot	
