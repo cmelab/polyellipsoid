@@ -52,7 +52,7 @@ class System:
                 chain.add_monomer(
                         ellipsoid,
                         indices=[0, 1],
-                        orientation=[[-1,0,0], [1,0,0]],
+                        orientation=[[0,0,1], [0,0,-1]],
                         replace=False,
                         separation=self.bond_length
                 )
