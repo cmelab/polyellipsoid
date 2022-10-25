@@ -11,3 +11,5 @@ dependencies:
   - pytest
   - pytest-cov
   - python
+  - pip:
+    - git+https://github.com/cmelab/cmeutils.git@master
