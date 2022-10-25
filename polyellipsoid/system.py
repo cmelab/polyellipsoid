@@ -1,9 +1,10 @@
-from polyellipsoid import Ellipsoid, Polymer
+from polyellipsoid import Ellipsoid
 from polyellipsoid.utils import base_units
 
 import hoomd
 import mbuild as mb
 from mbuild.formats.hoomd_forcefield import to_hoomdsnapshot
+from mbuild.lib.recipes.polymer import Polymer
 import numpy as np
 
 units = base_units.base_units()
@@ -16,11 +17,10 @@ class System:
             self,
             n_chains,
             chain_lengths,
+            bead_length,
             bead_mass,
             density,
-            axis_length,
-            bond_length,
-            major_axis=[1,0,0],
+            bond_length=.01,
             seed=42,
     ):
         if not isinstance(n_chains, list):
@@ -33,33 +33,31 @@ class System:
 
         self.n_chains = n_chains
         self.chain_lengths = chain_lengths
-        self.bead_mass = bead_mass
-        self.bond_length = bond_length
         self.density = density
-        self.axis_length = axis_length
-        self.major_axis = major_axis
+        self.bead_mass = bead_mass
+        self.bead_length = bead_length
+        self.bond_length = bond_length
         self.n_beads = sum([i*j for i,j in zip(n_chains, chain_lengths)])
         self.system_mass = bead_mass * self.n_beads
         self.target_box = None
         self.mb_system = None
-        self.snapshot = None
         
         self.chains = []
-        for l in chain_lengths:
-            ellipsoid = Ellipsoid(
-                    name="bead",
-                    mass=self.bead_mass,
-                    major_length=self.axis_length,
-                    major_axis=self.major_axis,
-            )
-            chain = Polymer()
-            chain.add_bead(
-                    bead=ellipsoid,
-                    bond_axis="major",
-                    separation=self.bond_length
-            )
-            chain.build(n=l, add_hydrogens=False)
-            self.chains.append(chain)
+        for n, l in zip(n_chains, chain_lengths):
+            for i in range(n):
+                ellipsoid = Ellipsoid(
+                        mass=self.bead_mass, length=self.bead_length
+                )
+                chain = Polymer()
+                chain.add_monomer(
+                        ellipsoid,
+                        indices=[0, 1],
+                        orientation=[[0,0,1], [0,0,-1]],
+                        replace=False,
+                        separation=self.bond_length
+                )
+                chain.build(n=l, add_hydrogens=False)
+                self.chains.append(chain)
 
     def pack(self, box_expand_factor=5):
         """Uses mBuild's fill_box function to fill a cubic box
@@ -78,31 +76,29 @@ class System:
         if self.target_box is None:
             self.set_target_box()
         pack_box = self.target_box * box_expand_factor
-        system = mb.packing.fill_box(
+        self.mb_system = mb.packing.fill_box(
             compound=self.chains,
-            n_compounds=self.n_chains,
+            n_compounds=[1 for i in self.chains],
             box=list(pack_box),
             overlap=0.2,
-            edge=0.9,
+            edge=0.2,
             fix_orientation=True
         )
-        # TODO: Remove this attribute, using now for easy visualizing
-        self.mb_system = system
-        self.snapshot = self._make_rigid_snapshot(system)
+        self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
 
     def stack(self, x, y, n, vector, z_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
 
         """
-        if self.n_chains[0] != n*n*2:
+        if sum(self.n_chains) != n*n*2:
             raise ValueError(
                     "Using this method creates a system of n x n "
                     "unit cells with each unit cell containing 2 molecules. "
                     "The number of molecules in the system should equal "
-                    f"2*n*n. You have {self.n_chains[0]} number of chains."
+                    f"2*n*n. You have {sum(self.n_chains)} number of chains."
             )
         next_idx = 0
-        system = mb.Compound()
+        self.mb_system = mb.Compound()
         for i in range(n):
             layer = mb.Compound()
             for j in range(n): # Add chains to the layer along the y dir
@@ -110,7 +106,7 @@ class System:
                     chain1 = self.chains[next_idx]
                     chain2 = self.chains[next_idx + 1]
                     translate_by = np.array(vector)*(x, y, 0)
-                    chain2.translate_by(translate_by)
+                    chain2.translate(translate_by)
                     cell = mb.Compound(subcompounds=[chain1, chain2])
                     cell.translate((0, y*j, 0))
                     layer.add(cell)
@@ -118,12 +114,21 @@ class System:
                 except IndexError:
                     pass
             layer.translate((x*i, 0, 0)) # shift layers along x dir
-            system.add(layer)
+            self.mb_system.add(layer)
 
-        bounding_box = system.get_boundingbox().lengths
+        bounding_box = np.array(self.mb_system.get_boundingbox().lengths)
+        bounding_box *= 1.10
         target_z = bounding_box[-1] * z_axis_adjust
+        self.mb_system.box = mb.box.Box(bounding_box)
         self.set_target_box(z_constraint=target_z)
-        self.snapshot = self._make_rigid_snapshot(system)
+        self.mb_system.translate_to(
+                (
+                    self.mb_system.box.Lx/2,
+                    self.mb_system.box.Ly/2,
+                    self.mb_system.box.Lz/2
+                )
+        )
+        self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
 
     def set_target_box(
             self,
@@ -186,33 +191,3 @@ class System:
                 L = L**(1/2)
         L *= units["cm_to_nm"]  # convert cm to nm
         return L
-
-    def _make_rigid_snapshot(self, mb_system):
-        """Handles requirements for setting up a snapshot
-        to run a rigid body simulation in Hoomd
-
-        Parameters
-        ----------
-        mb_system : required
-            mBuild system created in the pack and stack functions
-
-        """
-        init_snap = hoomd.Snapshot()
-        init_snap.particles.types = ["R"]
-        init_snap.particles.N = self.n_beads
-        snapshot, refs = to_hoomdsnapshot(
-                mb_system, hoomd_snapshot=init_snap
-        )
-		# Get head-tail pair indices	
-        pair_idx = [(i,i+1) for i in range(
-            self.n_beads, snapshot.particles.N, 2
-        )]
-        # Set position of rigid centers, set rigid body attr	
-        for idx, pair in enumerate(pair_idx):
-            pos1 = snapshot.particles.position[pair[0]]
-            pos2 = snapshot.particles.position[pair[1]]
-            # Update rigid center position based on its constituent particles
-            snapshot.particles.position[idx] = np.mean([pos1, pos2], axis=0)
-            snapshot.particles.body[idx] = idx
-            snapshot.particles.body[list(pair)] = idx * np.ones_like(pair)
-        return snapshot	

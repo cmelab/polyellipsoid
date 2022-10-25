@@ -1,6 +1,7 @@
 from polyellipsoid import Simulation
 from base_test import BaseTest
 
+import numpy as np
 import pytest
 
 class TestSimulate(BaseTest):
@@ -19,6 +20,12 @@ class TestSimulate(BaseTest):
                 gsd_write=1000,
                 log_write=100
         )
+        ids = sim.snapshot.particles.typeid
+        num_rigid = np.count_nonzero(ids==0)
+        assert num_rigid == 100
+
+        for i in range(0, num_rigid):
+            assert sim.snapshot.particles.types[ids[i]] == "R"
     
     def test_shrink(self, sim_init):
         sim_init.shrink(n_steps=2000, kT=1.0) 

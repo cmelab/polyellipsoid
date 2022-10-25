@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from polyellipsoid import Ellipsoid, Polymer, System, Simulation
+from polyellipsoid import Ellipsoid, System, Simulation
 
 class BaseTest:
     @pytest.fixture(autouse=True)
@@ -42,10 +42,9 @@ class BaseTest:
         sys = System(
                 n_chains=20,
                 chain_lengths=5,
+                bead_length=2.0,
                 bead_mass=100,
                 density=0.05,
-                bond_length=0.10,
-                axis_length=1
         )
         if method == "pack":
             sys.pack(box_expand_factor=5)
