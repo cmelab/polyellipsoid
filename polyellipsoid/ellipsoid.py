@@ -20,5 +20,3 @@ class Ellipsoid(Compound):
         )
         self.add([self.head, self.tail])
         self.add_bond([self.head, self.tail])
-
-   
