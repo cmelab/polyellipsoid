@@ -143,7 +143,8 @@ class Simulation:
                 box1=self.sim.state.box,
                 box2=self.target_box,
                 variant=ramp,
-                trigger=box_resize_trigger
+                trigger=box_resize_trigger,
+                filter=self.all
         )
         self.sim.operations.updaters.append(box_resize)
 
