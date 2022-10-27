@@ -6,6 +6,24 @@ import pytest
 
 class TestSimulate(BaseTest):
 
+    def test_angles(self, packed_system):
+        sim = Simulation(
+                system=packed_system,
+                lperp=1.0,
+                lpar=1.0,
+                epsilon=1.0,
+                tau=0.1,
+                dt=0.001,
+                r_cut=2.0,
+                bond_k=1000,
+                angle_k=200,
+                angle_theta=2.0,
+                seed=42,
+                gsd_write=1000,
+                log_write=100
+        )
+        sim.quench(n_steps=2000, kT=2.0)
+
     def test_init_sim(self, packed_system):
         sim = Simulation(
                 system=packed_system,

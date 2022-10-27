@@ -44,8 +44,8 @@ class TestSystem(BaseTest):
                 bead_length=2,
                 bond_length=0.2
         )
-        assert len(sys.chains) == 2
-        assert len(packed_system.chains) == 1
+        assert len(sys.chains) == 10 
+        assert sys.n_beads == 45
 
 
     def test_pack(self):
