@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - freud
+  - gmso
   - gsd
   - hoomd=*=*gpu*
   - mbuild

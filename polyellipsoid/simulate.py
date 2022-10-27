@@ -1,5 +1,7 @@
 from cmeutils.geometry import moit
 from cmeutils.gsd_utils import create_rigid_snapshot, update_rigid_snapshot
+from gmso.external.convert_mbuild import from_mbuild
+from gmso.external.convert_parmed import to_parmed
 from mbuild.formats.hoomd_forcefield import to_hoomdsnapshot
 
 import hoomd
@@ -55,6 +57,8 @@ class Simulation:
             lpar,
             bond_k,
             r_cut,
+            angle_k=None,
+            angle_theta=None,
             tau=0.1,
             dt=0.0001,
             seed=21,
@@ -63,12 +67,21 @@ class Simulation:
     ):
         self.system = system
         init_snap = create_rigid_snapshot(system.mb_system)
-        _snapshot, refs = to_hoomdsnapshot(
-                system.mb_system, hoomd_snapshot=init_snap
+        # Use GMSO to populate angle information before making snapshot
+        gmso_system = from_mbuild(system.mb_system)
+        gmso_system.identify_connections()
+        parmed_system = to_parmed(gmso_system)
+        # Atom types need to be set for angles to be correctly added
+        for atom in parmed_system.atoms:
+            atom.type = atom.name
+
+        self._snapshot, refs = to_hoomdsnapshot(
+                parmed_system, hoomd_snapshot=init_snap
         )
         self.snapshot, self.rigid = update_rigid_snapshot(
-                snapshot=_snapshot, mb_compound=system.mb_system
+                snapshot=self._snapshot, mb_compound=system.mb_system
         )
+
         self.tau = tau
         self.gsd_write = gsd_write
         self.log_write = log_write
@@ -86,7 +99,7 @@ class Simulation:
                 device=hoomd.device.auto_select(), seed=seed
         )
         self.sim.create_state_from_snapshot(self.snapshot)
-
+        self.forcefield = []
         # Set up forces, GB pair and harmonic bond:
         nl = hoomd.md.nlist.Cell(buffer=0.40)
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
@@ -96,11 +109,19 @@ class Simulation:
         ]
         for pair in zero_pairs:
             gb.params[pair] = dict(epsilon=0.0, lperp=0.0, lpar=0.0)
+        self.forcefield.append(gb)
         # Set up harmonic bond force
         harmonic_bond = hoomd.md.bond.Harmonic()
         harmonic_bond.params["CH-CT"] = dict(
                 k=bond_k, r0=self.system.bond_length
         )
+        self.forcefield.append(harmonic_bond)
+        # Set up harmonic angle force
+        if all([angle_k, angle_theta]):
+            harmonic_angle = hoomd.md.angle.Harmonic()
+            harmonic_angle.params["CT-CH-CT"] = dict(k=angle_k, t0=angle_theta)
+            harmonic_angle.params["CH-CT-CH"] = dict(k=0, t0=0)
+            self.forcefield.append(harmonic_angle)
         # Set up hoomd groups 
         self.all = hoomd.filter.Rigid(("center", "free"))
         # Set up integrator; method is added in the 3 sim functions
@@ -108,12 +129,9 @@ class Simulation:
                 dt=dt, integrate_rotational_dof=True
         )
         self.integrator.rigid = self.rigid
-        self.integrator.forces = [gb, harmonic_bond]
-        
+        self.integrator.forces = self.forcefield 
         # Set up gsd and log writers
-        gsd_writer, table_file = self._hoomd_writers(
-                group=self.all, forcefields=[gb, harmonic_bond]
-        )
+        gsd_writer, table_file = self._hoomd_writers()
         self.sim.operations.writers.append(gsd_writer)
         self.sim.operations.writers.append(table_file)
 
@@ -172,15 +190,17 @@ class Simulation:
         """
         if self.ran_shrink: # Shrink step ran, update temperature
             self.integrator.methods[0].kT = kT
+            write_at_start = False
         else: # Shrink not ran, add integrator method
             integrator_method = hoomd.md.methods.NVT(
                     filter=self.all, kT=kT, tau=self.tau
             )
             self.integrator.methods = [integrator_method]
             self.sim.operations.add(self.integrator)
+            write_at_start = True
 
         self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-        self.sim.run(n_steps, write_at_start=True)
+        self.sim.run(n_steps, write_at_start=write_at_start)
 
     def anneal(
             self,
@@ -214,6 +234,9 @@ class Simulation:
             )
             self.integrator.methods = [integrator_method]
             self.sim.operations.add(self.integrator)
+            write_at_start = True
+        else:
+            write_at_start = False
 
         if not schedule:
             temps = np.linspace(kT_init, kT_final, len(step_sequence))
@@ -225,9 +248,9 @@ class Simulation:
             self.sim.state.thermalize_particle_momenta(
                     filter=self.all, kT=kT
             )
-            self.sim.run(schedule[kT])
+            self.sim.run(schedule[kT], write_at_start=write_at_start)
 
-    def _hoomd_writers(self, group, forcefields):
+    def _hoomd_writers(self):
         """Creates gsd and log writers"""
         # GSD and Logging:
         writemode = "w"
@@ -240,10 +263,10 @@ class Simulation:
 
         logger = hoomd.logging.Logger(categories=["scalar", "string"])
         logger.add(self.sim, quantities=["timestep", "tps"])
-        thermo_props = hoomd.md.compute.ThermodynamicQuantities(filter=group)
+        thermo_props = hoomd.md.compute.ThermodynamicQuantities(filter=self.all)
         self.sim.operations.computes.append(thermo_props)
         logger.add(thermo_props, quantities=self.log_quantities)
-        for f in forcefields:
+        for f in self.forcefield:
             logger.add(f, quantities=["energy"])
 
         table_file = hoomd.write.Table(
