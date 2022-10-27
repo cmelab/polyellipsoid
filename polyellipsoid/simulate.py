@@ -107,8 +107,8 @@ class Simulation:
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
         )
-        self.integrator.forces = [gb, harmonic_bond]
         self.integrator.rigid = self.rigid
+        self.integrator.forces = [gb, harmonic_bond]
         # Set up gsd and log writers
         gsd_writer, table_file = self._hoomd_writers(
                 group=self.all, forcefields=[gb, harmonic_bond]
@@ -170,15 +170,17 @@ class Simulation:
         """
         if self.ran_shrink: # Shrink step ran, update temperature
             self.integrator.methods[0].kT = kT
+            write_at_start = False
         else: # Shrink not ran, add integrator method
             integrator_method = hoomd.md.methods.NVT(
                     filter=self.all, kT=kT, tau=self.tau
             )
             self.integrator.methods = [integrator_method]
             self.sim.operations.add(self.integrator)
+            write_at_start = True
 
         self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-        self.sim.run(n_steps, write_at_start=True)
+        self.sim.run(n_steps, write_at_start=write_at_start)
 
     def anneal(
             self,
@@ -212,6 +214,9 @@ class Simulation:
             )
             self.integrator.methods = [integrator_method]
             self.sim.operations.add(self.integrator)
+            write_at_start = True
+        else:
+            write_at_start = False
 
         if not schedule:
             temps = np.linspace(kT_init, kT_final, len(step_sequence))
@@ -223,7 +228,7 @@ class Simulation:
             self.sim.state.thermalize_particle_momenta(
                     filter=self.all, kT=kT
             )
-            self.sim.run(schedule[kT])
+            self.sim.run(schedule[kT], write_at_start=write_at_start)
 
     def _hoomd_writers(self, group, forcefields):
         """Creates gsd and log writers"""
