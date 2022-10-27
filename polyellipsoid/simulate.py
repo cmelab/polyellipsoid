@@ -1,5 +1,7 @@
 from cmeutils.geometry import moit
 from cmeutils.gsd_utils import create_rigid_snapshot, update_rigid_snapshot
+from gmso.external.convert_mbuild import from_mbuild
+from gmso.external.convert_parmed import to_parmed
 from mbuild.formats.hoomd_forcefield import to_hoomdsnapshot
 
 import hoomd
@@ -65,12 +67,22 @@ class Simulation:
     ):
         self.system = system
         init_snap = create_rigid_snapshot(system.mb_system)
-        _snapshot, refs = to_hoomdsnapshot(
-                system.mb_system, hoomd_snapshot=init_snap
+
+        # Use GMSO to populate angle information before making snapshot
+        gmso_system = from_mbuild(system.mb_system)
+        gmso_system.identify_connections()
+        parmed_system = to_parmed(gmso_system)
+        # Atom types need to be set for angles to be correctly added
+        for atom in self.parmed_system.atoms:
+            atom.type = atom.name
+
+        self._snapshot, refs = to_hoomdsnapshot(
+                parmed_system, hoomd_snapshot=init_snap
         )
         self.snapshot, self.rigid = update_rigid_snapshot(
-                snapshot=_snapshot, mb_compound=system.mb_system
+                snapshot=self._snapshot, mb_compound=system.mb_system
         )
+
         self.tau = tau
         self.gsd_write = gsd_write
         self.log_write = log_write
@@ -109,6 +121,7 @@ class Simulation:
         if all([angle_k, angle_theta]):
             harmonic_angle = hoomd.md.angle.Harmonic()
             harmonic_angle.params["CT-CH-CT"] = dict(k=angle_k, t0=angle_theta)
+            harmonic_angle.params["CH-CT-CH"] = dict(k=0, t0=0)
             self.forcefield.append(harmonic_angle)
         # Set up hoomd groups 
         self.all = hoomd.filter.Rigid(("center", "free"))
