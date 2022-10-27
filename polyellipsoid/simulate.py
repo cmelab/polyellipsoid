@@ -73,7 +73,7 @@ class Simulation:
         gmso_system.identify_connections()
         parmed_system = to_parmed(gmso_system)
         # Atom types need to be set for angles to be correctly added
-        for atom in self.parmed_system.atoms:
+        for atom in parmed_system.atoms:
             atom.type = atom.name
 
         self._snapshot, refs = to_hoomdsnapshot(
