@@ -107,8 +107,9 @@ class Simulation:
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
         )
-        self.integrator.forces = [gb, harmonic_bond]
         self.integrator.rigid = self.rigid
+        self.integrator.forces = [gb, harmonic_bond]
+        
         # Set up gsd and log writers
         gsd_writer, table_file = self._hoomd_writers(
                 group=self.all, forcefields=[gb, harmonic_bond]
@@ -143,7 +144,8 @@ class Simulation:
                 box1=self.sim.state.box,
                 box2=self.target_box,
                 variant=ramp,
-                trigger=box_resize_trigger
+                trigger=box_resize_trigger,
+                filter=self.all
         )
         self.sim.operations.updaters.append(box_resize)
 
