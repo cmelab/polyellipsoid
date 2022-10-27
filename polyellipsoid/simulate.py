@@ -67,7 +67,6 @@ class Simulation:
     ):
         self.system = system
         init_snap = create_rigid_snapshot(system.mb_system)
-
         # Use GMSO to populate angle information before making snapshot
         gmso_system = from_mbuild(system.mb_system)
         gmso_system.identify_connections()
@@ -132,9 +131,7 @@ class Simulation:
         self.integrator.rigid = self.rigid
         self.integrator.forces = self.forcefield 
         # Set up gsd and log writers
-        gsd_writer, table_file = self._hoomd_writers(
-                group=self.all, forces=self.forcefield
-        )
+        gsd_writer, table_file = self._hoomd_writers()
         self.sim.operations.writers.append(gsd_writer)
         self.sim.operations.writers.append(table_file)
 
@@ -253,7 +250,7 @@ class Simulation:
             )
             self.sim.run(schedule[kT], write_at_start=write_at_start)
 
-    def _hoomd_writers(self, group, forces):
+    def _hoomd_writers(self):
         """Creates gsd and log writers"""
         # GSD and Logging:
         writemode = "w"
@@ -266,10 +263,10 @@ class Simulation:
 
         logger = hoomd.logging.Logger(categories=["scalar", "string"])
         logger.add(self.sim, quantities=["timestep", "tps"])
-        thermo_props = hoomd.md.compute.ThermodynamicQuantities(filter=group)
+        thermo_props = hoomd.md.compute.ThermodynamicQuantities(filter=self.all)
         self.sim.operations.computes.append(thermo_props)
         logger.add(thermo_props, quantities=self.log_quantities)
-        for f in forces:
+        for f in self.forcefield:
             logger.add(f, quantities=["energy"])
 
         table_file = hoomd.write.Table(
