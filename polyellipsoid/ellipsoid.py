@@ -19,3 +19,6 @@ class Ellipsoid(Compound):
                 mass=mass/2
         )
         self.add([self.head, self.tail])
+        self.add_bond([self.head, self.tail])
+
+   
