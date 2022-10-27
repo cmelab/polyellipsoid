@@ -55,6 +55,8 @@ class Simulation:
             lpar,
             bond_k,
             r_cut,
+            angle_k=None,
+            angle_theta=None,
             tau=0.1,
             dt=0.0001,
             seed=21,
@@ -86,7 +88,7 @@ class Simulation:
                 device=hoomd.device.auto_select(), seed=seed
         )
         self.sim.create_state_from_snapshot(self.snapshot)
-
+        self.forcefield = []
         # Set up forces, GB pair and harmonic bond:
         nl = hoomd.md.nlist.Cell(buffer=0.40)
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
@@ -96,11 +98,18 @@ class Simulation:
         ]
         for pair in zero_pairs:
             gb.params[pair] = dict(epsilon=0.0, lperp=0.0, lpar=0.0)
+        self.forcefield.append(gb)
         # Set up harmonic bond force
         harmonic_bond = hoomd.md.bond.Harmonic()
         harmonic_bond.params["CH-CT"] = dict(
                 k=bond_k, r0=self.system.bond_length
         )
+        self.forcefield.append(harmonic_bond)
+        # Set up harmonic angle force
+        if all([angle_k, angle_theta]):
+            harmonic_angle = hoomd.md.angle.Harmonic()
+            harmonic_angle.params["CT-CH-CT"] = dict(k=angle_k, t0=angle_theta)
+            self.forcefield.append(harmonic_angle)
         # Set up hoomd groups 
         self.all = hoomd.filter.Rigid(("center", "free"))
         # Set up integrator; method is added in the 3 sim functions
@@ -108,10 +117,10 @@ class Simulation:
                 dt=dt, integrate_rotational_dof=True
         )
         self.integrator.rigid = self.rigid
-        self.integrator.forces = [gb, harmonic_bond]
+        self.integrator.forces = self.forcefield 
         # Set up gsd and log writers
         gsd_writer, table_file = self._hoomd_writers(
-                group=self.all, forcefields=[gb, harmonic_bond]
+                group=self.all, forces=self.forcefield
         )
         self.sim.operations.writers.append(gsd_writer)
         self.sim.operations.writers.append(table_file)
@@ -231,7 +240,7 @@ class Simulation:
             )
             self.sim.run(schedule[kT], write_at_start=write_at_start)
 
-    def _hoomd_writers(self, group, forcefields):
+    def _hoomd_writers(self, group, forces):
         """Creates gsd and log writers"""
         # GSD and Logging:
         writemode = "w"
@@ -247,7 +256,7 @@ class Simulation:
         thermo_props = hoomd.md.compute.ThermodynamicQuantities(filter=group)
         self.sim.operations.computes.append(thermo_props)
         logger.add(thermo_props, quantities=self.log_quantities)
-        for f in forcefields:
+        for f in forces:
             logger.add(f, quantities=["energy"])
 
         table_file = hoomd.write.Table(
