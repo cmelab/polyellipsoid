@@ -92,7 +92,7 @@ class System:
         )
         self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
 
-    def stack(self, x, y, n, vector, z_axis_adjust=1.0):
+    def stack(self, x, y, n, vector, x_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
 
         """
@@ -123,10 +123,10 @@ class System:
             self.mb_system.add(layer)
 
         bounding_box = np.array(self.mb_system.get_boundingbox().lengths)
-        bounding_box *= 1.10
-        target_z = bounding_box[-1] * z_axis_adjust
+        bounding_box *= 3 
+        target_x = bounding_box[0] * x_axis_adjust
         self.mb_system.box = mb.box.Box(bounding_box)
-        self.set_target_box(z_constraint=target_z)
+        self.set_target_box(x_constraint=target_x)
         self.mb_system.translate_to(
                 (
                     self.mb_system.box.Lx/2,

@@ -155,10 +155,11 @@ class Simulation:
         ramp = hoomd.variant.Ramp(
                 A=0, B=1, t_start=0, t_ramp=int(n_steps)
         )
+        # Convert from nm (mbuild units, used in System()) to Angstrom
         self.target_box = hoomd.Box(
-                Lx=self.system.target_box[0],
-                Ly=self.system.target_box[1],
-                Lz=self.system.target_box[2],
+                Lx=self.system.target_box[0] * 10,
+                Ly=self.system.target_box[1] * 10,
+                Lz=self.system.target_box[2] * 10,
         )
         box_resize=hoomd.update.BoxResize(
                 box1=self.sim.state.box,
