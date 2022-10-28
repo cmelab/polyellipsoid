@@ -123,7 +123,6 @@ class Simulation:
         if all([angle_k, angle_theta]):
             harmonic_angle = hoomd.md.angle.Harmonic()
             harmonic_angle.params["B-B-B"] = dict(k=angle_k, t0=angle_theta)
-            #harmonic_angle.params["CH-CT-CH"] = dict(k=0, t0=0)
             self.forcefield.append(harmonic_angle)
         # Set up hoomd groups 
         self.all = hoomd.filter.Rigid(("center", "free"))
