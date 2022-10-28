@@ -92,7 +92,7 @@ class System:
         )
         self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
 
-    def stack(self, x, y, n, vector, x_axis_adjust=1.0):
+    def stack(self, y, z, n, vector, x_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
 
         """
@@ -111,7 +111,7 @@ class System:
                 try:
                     chain1 = self.chains[next_idx]
                     chain2 = self.chains[next_idx + 1]
-                    translate_by = np.array(vector)*(x, y, 0)
+                    translate_by = np.array(vector)*(0, y, z)
                     chain2.translate(translate_by)
                     cell = mb.Compound(subcompounds=[chain1, chain2])
                     cell.translate((0, y*j, 0))
@@ -119,7 +119,7 @@ class System:
                     next_idx += 2
                 except IndexError:
                     pass
-            layer.translate((x*i, 0, 0)) # shift layers along x dir
+            layer.translate((0, 0, z*1)) # shift layers along x dir
             self.mb_system.add(layer)
 
         bounding_box = np.array(self.mb_system.get_boundingbox().lengths)
