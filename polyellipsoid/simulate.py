@@ -105,22 +105,25 @@ class Simulation:
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
         gb.params[('R', 'R')] = dict(epsilon=epsilon, lperp=lperp, lpar=lpar)
         zero_pairs = [
-                ('CT','CT'), ('CH','CT'), ('CH','CH'), ('CT','R'), ('CH','R')
+                ('A','A'), ('B','B'), ('A','B'), ('A','R'), ('B','R')
         ]
         for pair in zero_pairs:
             gb.params[pair] = dict(epsilon=0.0, lperp=0.0, lpar=0.0)
         self.forcefield.append(gb)
         # Set up harmonic bond force
         harmonic_bond = hoomd.md.bond.Harmonic()
-        harmonic_bond.params["CH-CT"] = dict(
+        harmonic_bond.params["A-A"] = dict(
                 k=bond_k, r0=self.system.bond_length
+        )
+        harmonic_bond.params["B-B"] = dict(
+                k=0, r0=self.system.bead_length / 2
         )
         self.forcefield.append(harmonic_bond)
         # Set up harmonic angle force
         if all([angle_k, angle_theta]):
             harmonic_angle = hoomd.md.angle.Harmonic()
-            harmonic_angle.params["CT-CH-CT"] = dict(k=angle_k, t0=angle_theta)
-            harmonic_angle.params["CH-CT-CH"] = dict(k=0, t0=0)
+            harmonic_angle.params["B-B-B"] = dict(k=angle_k, t0=angle_theta)
+            #harmonic_angle.params["CH-CT-CH"] = dict(k=0, t0=0)
             self.forcefield.append(harmonic_angle)
         # Set up hoomd groups 
         self.all = hoomd.filter.Rigid(("center", "free"))

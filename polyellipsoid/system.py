@@ -52,11 +52,17 @@ class System:
                 chain.add_monomer(
                         ellipsoid,
                         indices=[0, 1],
-                        orientation=[[0,0,1], [0,0,-1]],
+                        orientation=[[1,0,0], [-1,0,0]],
                         replace=False,
                         separation=self.bond_length
                 )
                 chain.build(n=l, add_hydrogens=False)
+                chain.freud_generate_bonds(
+                        name_a="B",
+                        name_b="B",
+                        dmin=self.bead_length/2, 
+                        dmax=self.bead_length/2 + bond_length + 0.1 
+                )
                 self.chains.append(chain)
 
     def pack(self, box_expand_factor=5):
