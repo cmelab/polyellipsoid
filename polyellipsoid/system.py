@@ -86,8 +86,8 @@ class System:
             compound=self.chains,
             n_compounds=[1 for i in self.chains],
             box=list(pack_box),
-            overlap=0.2,
-            edge=0.2,
+            overlap=0.5,
+            edge=0.5,
             fix_orientation=True
         )
         self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
