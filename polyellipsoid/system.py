@@ -90,7 +90,7 @@ class System:
             edge=0.5,
             fix_orientation=True
         )
-        self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
+        self.mb_system.label_rigid_bodies(discrete_bodies="ellipsoid")
 
     def stack(self, y, z, n, vector, x_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
@@ -134,7 +134,7 @@ class System:
                     self.mb_system.box.Lz/2
                 )
         )
-        self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
+        self.mb_system.label_rigid_bodies(discrete_bodies="ellipsoid")
 
     def set_target_box(
             self,

@@ -104,9 +104,7 @@ class Simulation:
         nl = hoomd.md.nlist.Cell(buffer=0.40)
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
         gb.params[('R', 'R')] = dict(epsilon=epsilon, lperp=lperp, lpar=lpar)
-        zero_pairs = [
-                ('A','A'), ('B','B'), ('A','B'), ('A','R'), ('B','R')
-        ]
+        zero_pairs = [('A','A'), ('B','B'), ('A','B'), ('A','R'), ('B','R')]
         for pair in zero_pairs:
             gb.params[pair] = dict(epsilon=0.0, lperp=0.0, lpar=0.0)
         self.forcefield.append(gb)
@@ -124,9 +122,9 @@ class Simulation:
             harmonic_angle = hoomd.md.angle.Harmonic()
             harmonic_angle.params["B-B-B"] = dict(k=angle_k, t0=angle_theta)
             self.forcefield.append(harmonic_angle)
-        # Set up hoomd groups 
-        self.all = hoomd.filter.Rigid(("center", "free"))
+
         # Set up integrator; method is added in the 3 sim functions
+        self.all = hoomd.filter.Rigid(("center", "free"))
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
         )
@@ -248,9 +246,7 @@ class Simulation:
 
         for kT in schedule:
             self.integrator.methods[0].kT = kT
-            self.sim.state.thermalize_particle_momenta(
-                    filter=self.all, kT=kT
-            )
+            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
             self.sim.run(schedule[kT], write_at_start=write_at_start)
 
     def _hoomd_writers(self):

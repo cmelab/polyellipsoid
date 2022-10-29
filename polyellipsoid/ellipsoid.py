@@ -2,8 +2,8 @@ from mbuild import Compound
 
 
 class Ellipsoid(Compound):
-    def __init__(self, mass, length, name="dimer"):
-        super(Ellipsoid, self).__init__(name=name)
+    def __init__(self, mass, length):
+        super(Ellipsoid, self).__init__(name="ellipsoid")
         self.length = float(length)
         # Create the constituent particles
         self.head = Compound(
@@ -17,12 +17,12 @@ class Ellipsoid(Compound):
                 mass=mass/4
         )
         self.head_mid = Compound(
-                pos=self.head.xyz[0] / 2,
+                pos=[self.length/4, 0, 0],
                 name="B",
                 mass=mass/4
         )
         self.tail_mid = Compound(
-                pos=self.tail.xyz[0] / 2,
+                pos=[-self.length/4, 0, 0],
                 name="B",
                 mass=mass/4
         )
