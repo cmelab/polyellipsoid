@@ -49,5 +49,5 @@ class BaseTest:
         if method == "pack":
             sys.pack(box_expand_factor=5)
         elif method == "stack":
-            sys.stack(x=2, y=2, axis=[1,1,0], n=2)
+            sys.stack(z=2, y=2, axis=[0,1,1], n=2)
         return sys

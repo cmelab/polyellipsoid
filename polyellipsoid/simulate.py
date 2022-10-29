@@ -113,10 +113,10 @@ class Simulation:
         # Set up harmonic bond force
         harmonic_bond = hoomd.md.bond.Harmonic()
         harmonic_bond.params["A-A"] = dict(
-                k=bond_k, r0=self.system.bond_length
+                k=bond_k, r0=self.system.bond_length * 10
         )
         harmonic_bond.params["B-B"] = dict(
-                k=0, r0=self.system.bead_length / 2
+                k=0, r0=(self.system.bead_length * 10) / 2
         )
         self.forcefield.append(harmonic_bond)
         # Set up harmonic angle force
@@ -177,7 +177,7 @@ class Simulation:
         self.integrator.methods = [integrator_method]
         self.sim.operations.add(self.integrator)
         self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-        self.sim.run(n_steps + 1) 
+        self.sim.run(n_steps + 1, write_at_start=True) 
         self.ran_shrink = True
 
     def quench(self, kT, n_steps):
@@ -255,7 +255,6 @@ class Simulation:
 
     def _hoomd_writers(self):
         """Creates gsd and log writers"""
-        # GSD and Logging:
         writemode = "w"
         gsd_writer = hoomd.write.GSD(
                 filename="sim_traj.gsd",
