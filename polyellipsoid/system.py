@@ -60,8 +60,8 @@ class System:
                 chain.freud_generate_bonds(
                         name_a="B",
                         name_b="B",
-                        dmin=self.bead_length, 
-                        dmax=self.bead_length + bond_length + 0.1 
+                        dmin=self.bead_length / 2 - 0.1, 
+                        dmax=self.bead_length / 2 + bond_length + 0.1 
                 )
                 self.chains.append(chain)
 
