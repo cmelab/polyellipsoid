@@ -17,12 +17,12 @@ class Ellipsoid(Compound):
                 mass=mass/4
         )
         self.head_mid = Compound(
-                pos=[self.length/4, 0, 0],
+                pos=[self.length/2, 0, 0],
                 name="B",
                 mass=mass/4
         )
         self.tail_mid = Compound(
-                pos=[-self.length/4, 0, 0],
+                pos=[-self.length/2, 0, 0],
                 name="B",
                 mass=mass/4
         )
