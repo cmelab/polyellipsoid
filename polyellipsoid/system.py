@@ -11,7 +11,46 @@ units = base_units.base_units()
 
 
 class System:
-    """
+    """Constructs initial system configurations.
+
+    Uses Creates chains of polyellipsoid.Ellipsoid beads and organizes
+    the chains into different initial configurations. The number of chains
+    and their respective chain lengths can be controlled (i.e. creating
+    polydisperse systems).
+
+    Parameters
+    ----------
+    n_chains : int or list of int; required
+        The number of chains (i.e. molecules) to build the system with.
+        If creating a polydisperse system with multiple chain lengths,
+        set a list of integers.
+    chain_lengths : int or list of int; required
+        The number of beads in the chain. If creating a polydisperse system,
+        set a list of integers where the index corresponds to the index
+        in the n_chains parameter
+    bead_mass : float; required
+        The desired mass of the beads. The bead mass is used in calculating
+        total system mass and simulation volumes to match the desired density.
+    density: float; required (g/cm^3)
+        The desired density of the system in g/cm^3.
+    bond_length : float, default=0.01 (nm)
+        The distance between bonded anchor points of neighboring beads.
+        Small values work best to avoid artifacts of bonded ghost particles
+        freely rotating during the simulation.
+
+    Methods
+    -------
+    set_target_box: Sets the target_box attribute used during shrinking
+        Constraints (pre-defined values) can be set for any of the
+        box vectors (x, y, z) and any remaining unconstrained box
+        vectors are solved for to match the target density.
+    pack : System initializaion method that randomly packs chain in a box
+        Uses mBuild's fill_box method which utilizes PACKMOL to fill a
+        low density box which can be shrunken down to the target
+        density.
+    stack : System initialization method that populates chains on a lattice
+        Can be used to create ordered initial configurations
+
     """
     def __init__(
             self,
@@ -21,7 +60,6 @@ class System:
             bead_mass,
             density,
             bond_length=.01,
-            seed=42,
     ):
         if not isinstance(n_chains, list):
             n_chains = [n_chains]
