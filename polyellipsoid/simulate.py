@@ -66,6 +66,7 @@ class Simulation:
             log_write=1e3,
     ):
         self.system = system
+        # Snapshot with rigid center placeholders
         init_snap = create_rigid_snapshot(system.mb_system)
         # Use GMSO to populate angle information before making snapshot
         gmso_system = from_mbuild(system.mb_system)
@@ -74,14 +75,14 @@ class Simulation:
         # Atom types need to be set for angles to be correctly added
         for atom in parmed_system.atoms:
             atom.type = atom.name
-
+        # Snapsot with complete toplogy information added
         self._snapshot, refs = to_hoomdsnapshot(
                 parmed_system, hoomd_snapshot=init_snap
         )
+        # Snapshot with info updated for rigid centers
         self.snapshot, self.rigid = update_rigid_snapshot(
                 snapshot=self._snapshot, mb_compound=system.mb_system
         )
-
         self.tau = tau
         self.gsd_write = gsd_write
         self.log_write = log_write
@@ -100,7 +101,7 @@ class Simulation:
         )
         self.sim.create_state_from_snapshot(self.snapshot)
         self.forcefield = []
-        # Set up forces, GB pair and harmonic bond:
+        # Set up forces, GB pair, harmonic bonds and angles:
         nl = hoomd.md.nlist.Cell(buffer=0.40)
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
         gb.params[('R', 'R')] = dict(epsilon=epsilon, lperp=lperp, lpar=lpar)
@@ -108,7 +109,7 @@ class Simulation:
         for pair in zero_pairs:
             gb.params[pair] = dict(epsilon=0.0, lperp=0.0, lpar=0.0)
         self.forcefield.append(gb)
-        # Set up harmonic bond force
+
         harmonic_bond = hoomd.md.bond.Harmonic()
         harmonic_bond.params["A-A"] = dict(
                 k=bond_k, r0=self.system.bond_length * 10
@@ -117,7 +118,7 @@ class Simulation:
                 k=0, r0=(self.system.bead_length * 10) / 2
         )
         self.forcefield.append(harmonic_bond)
-        # Set up harmonic angle force
+
         if all([angle_k, angle_theta]):
             harmonic_angle = hoomd.md.angle.Harmonic()
             harmonic_angle.params["B-B-B"] = dict(k=angle_k, t0=angle_theta)
