@@ -66,6 +66,7 @@ class Simulation:
             log_write=1e3,
     ):
         self.system = system
+        self.dt = dt
         # Snapshot with rigid center placeholders
         init_snap = create_rigid_snapshot(system.mb_system)
         # Use GMSO to populate angle information before making snapshot
@@ -126,15 +127,40 @@ class Simulation:
 
         # Set up integrator; method is added in the 3 sim functions
         self.all = hoomd.filter.Rigid(("center", "free"))
-        self.integrator = hoomd.md.Integrator(
-                dt=dt, integrate_rotational_dof=True
-        )
-        self.integrator.rigid = self.rigid
-        self.integrator.forces = self.forcefield 
+        #self.integrator = hoomd.md.Integrator(
+        #        dt=dt, integrate_rotational_dof=True
+        #)
+        #self.integrator.rigid = self.rigid
+        #self.integrator.forces = self.forcefield 
         # Set up gsd and log writers
+        self.integrator = None
         gsd_writer, table_file = self._hoomd_writers()
         self.sim.operations.writers.append(gsd_writer)
         self.sim.operations.writers.append(table_file)
+
+    def set_integrator(
+            self,
+            integrator_method,
+            method_kwargs,
+    ):
+        # No integrator and method has been created yet
+        if not self.integrator:
+            self.integrator = hoomd.md.Integrator(
+                    dt=self.dt, integrate_rotational_dof=True
+            )
+            self.integrator.rigid = self.rigid
+            self.integrator.forces = self.forcefield
+            self.sim.operations.add(self.integrator)
+            self.method = integrator_method(**method_kwargs) 
+            self.sim.operations.integrator.methods = [self.method]
+        # Update the existing integrator with a new method
+        else:
+            self._update_integrator_method(integrator_method, method_kwargs)
+
+    def _update_integrator_method(self, integrator_method, method_kwargs):
+        self.integrator.methods.remove(self.method)
+        self.method = integrator_method(**method_kwargs)
+        self.integrator.methods.append(self.method)
 
     def shrink(self, kT, n_steps, shrink_period=10):
         """Run a shrink simulation to reach a target volume.
@@ -179,30 +205,79 @@ class Simulation:
         self.sim.run(n_steps + 1, write_at_start=True) 
         self.ran_shrink = True
 
-    def quench(self, kT, n_steps):
-        """Run a simulation at a single temperature.
-
-        Parameters
-        ----------
-        kT : float, required
-            Temperature to run the simulation at.
-        n_steps : int, required
-            The number of simulation steps to run
-
-        """
-        if self.ran_shrink: # Shrink step ran, update temperature
-            self.integrator.methods[0].kT = kT
-            write_at_start = False
-        else: # Shrink not ran, add integrator method
-            integrator_method = hoomd.md.methods.NVT(
-                    filter=self.all, kT=kT, tau=self.tau
+    def run_langevin(
+            self,
+            n_steps,
+            kT,
+            alpha,
+            tally_reservoir_energy=False,
+            default_gamma=1.0,
+            default_gamma_r=(1.0, 1.0, 1.0)
+    ):
+        self.set_integrator(
+                integrator_method=hoomd.md.methods.Langevin,
+                method_kwargs={
+                        "kT": kT,
+                        "alpha": alpha,
+                        "tally_reservoir_energy": tally_resivoir_energy,
+                        "default_gamma": default_gamma,
+                        "default_gamma_r": default_gamma_r,
+                    }
+        )
+        if isinstance(kT, hoomd.variant.Ramp):
+            self.sim.state.thermalize_particle_momenta(
+                    filter=self.all, kT=kT.range[0]
             )
-            self.integrator.methods = [integrator_method]
-            self.sim.operations.add(self.integrator)
-            write_at_start = True
+        else:
+            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
+        self.sim.run(n_steps)
 
-        self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-        self.sim.run(n_steps, write_at_start=write_at_start)
+    def run_NPT(
+            self,
+            n_steps,
+            kT,
+            pressure,
+            tau_kt,
+            tau_pressure,
+            couple="xyz",
+            box_dof=[True, True, True, False, False, False],
+            rescale_all=False,
+            gamma=0.0
+    ):
+        self.set_integrator(
+                integrator_method=hoomd.md.methods.NPT,
+                method_kwargs={
+                    "kT": kT,
+                    "S": pressure,
+                    "tau": tau_kt,
+                    "tauS": tau_pressure,
+                    "couple": couple,
+                    "box_dof": box_dof,
+                    "rescale_all": rescale_all,
+                    "gamma": gamma,
+                    "filter": self.all, "kT": kT
+                }
+        )
+        if isinstance(kT, hoomd.variant.Ramp):
+            self.sim.state.thermalize_particle_momenta(
+                    filter=self.all, kT=kT.range[0]
+            )
+        else:
+            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
+        self.sim.run(n_steps)
+    
+    def run_NVT(self, n_steps, kT, tau_kt):
+        self.set_integrator(
+                integrator_method=hoomd.md.methods.NVT,
+                method_kwargs={"tau": tau_kt, "filter": self.all, "kT": kT},
+        )
+        if isinstance(kT, hoomd.variant.Ramp):
+            self.sim.state.thermalize_particle_momenta(
+                    filter=self.all, kT=kT.range[0]
+            )
+        else:
+            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
+        self.sim.run(n_steps)
 
     def anneal(
             self,
@@ -249,6 +324,20 @@ class Simulation:
             self.integrator.methods[0].kT = kT
             self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
             self.sim.run(schedule[kT], write_at_start=write_at_start)
+
+    def temperature_ramp(
+            self,
+            n_steps,
+            kT_start,
+            kT_final,
+            period,
+    ):  
+        return hoomd.variant.Ramp(
+                A=kT_start,
+                B=kT_final,
+                t_start=self.sim.timestep,
+                t_ramp=int(n_steps)
+        )
 
     def _hoomd_writers(self):
         """Creates gsd and log writers"""
