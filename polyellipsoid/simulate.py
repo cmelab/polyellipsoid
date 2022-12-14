@@ -66,7 +66,7 @@ class Simulation:
             log_write=1e3,
     ):
         self.system = system
-        self.dt = dt
+        self._dt = dt
         # Snapshot with rigid center placeholders
         init_snap = create_rigid_snapshot(system.mb_system)
         # Use GMSO to populate angle information before making snapshot
@@ -125,18 +125,22 @@ class Simulation:
             harmonic_angle.params["B-B-B"] = dict(k=angle_k, t0=angle_theta)
             self.forcefield.append(harmonic_angle)
 
-        # Set up integrator; method is added in the 3 sim functions
         self.all = hoomd.filter.Rigid(("center", "free"))
-        #self.integrator = hoomd.md.Integrator(
-        #        dt=dt, integrate_rotational_dof=True
-        #)
-        #self.integrator.rigid = self.rigid
-        #self.integrator.forces = self.forcefield 
         # Set up gsd and log writers
         self.integrator = None
         gsd_writer, table_file = self._hoomd_writers()
         self.sim.operations.writers.append(gsd_writer)
         self.sim.operations.writers.append(table_file)
+
+    @property
+    def dt(self):
+        return self._dt
+
+    @dt.setter
+    def dt(self, value):
+        self._dt = value 
+        if self.integrator:
+            self.sim.operations.integrator.dt = self._dt
 
     def set_integrator(
             self,
