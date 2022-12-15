@@ -2,15 +2,16 @@ name: polyellipsoid
 channels:
   - conda-forge
 dependencies:
+  - mbuild>=0.15
   - freud
   - gmso
   - gsd
   - hoomd=*=*gpu*
-  - mbuild
   - numpy
   - pip
   - pytest
   - pytest-cov
   - python
   - pip:
-    - git+https://github.com/cmelab/cmeutils.git@master
+      - git+https://github.com/cmelab/cmeutils.git@master
+
