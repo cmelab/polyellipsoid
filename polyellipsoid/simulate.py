@@ -25,8 +25,6 @@ class Simulation:
         Spring constant for hoomd.md.bond.Harmonic force
     r_cut : float, required
         Cutoff radius for potentials (in simulation distance units)
-    tau : float, optional, default 0.1
-        Thermostat coupling period (in simulation time units)
     dt : float, optional, default 0.001
         Size of simulation timestep (in simulation time units)
     seed : int, optional, default 21
@@ -47,7 +45,7 @@ class Simulation:
     run_NVE : Runs a Hoomd simulation in the NVE ensemble
     temperature_ramp : Retruns a hoomd.variant.Ramp()
         Can be passed into the kT parameter for each of the run functions
-    set_integrator : Sets an initial (or updates) integrator method
+    set_integrator_method : Sets an initial (or updates) integrator method
         This is called automatically within the run functions, but
         can also be used directly if needed.
 
@@ -62,7 +60,6 @@ class Simulation:
             r_cut,
             angle_k=None,
             angle_theta=None,
-            tau=0.1,
             dt=0.0001,
             seed=21,
             gsd_write=1e4,
@@ -70,7 +67,7 @@ class Simulation:
     ):
         self.system = system
         self._dt = dt
-        # Snapshot with rigid center placeholders
+        # Snapshot with rigid center placeholders, no toplogy information
         init_snap = create_rigid_snapshot(system.mb_system)
         # Use GMSO to populate angle information before making snapshot
         gmso_system = from_mbuild(system.mb_system)
@@ -83,14 +80,12 @@ class Simulation:
         self._snapshot, refs = to_hoomdsnapshot(
                 parmed_system, hoomd_snapshot=init_snap
         )
-        # Snapshot with info updated for rigid centers
+        # Snapshot with info updated for rigid centers, used by Hoomd
         self.snapshot, self.rigid = update_rigid_snapshot(
                 snapshot=self._snapshot, mb_compound=system.mb_system
         )
-        self.tau = tau
         self.gsd_write = gsd_write
         self.log_write = log_write
-        self.ran_shrink = False
         self.log_quantities = [
             "kinetic_temperature",
             "potential_energy",
@@ -100,9 +95,8 @@ class Simulation:
             "pressure_tensor"
         ]
         # Set up sim object
-        self.sim = hoomd.Simulation(
-                device=hoomd.device.auto_select(), seed=seed
-        )
+        self.device = hoomd.device.auto_select()
+        self.sim = hoomd.Simulation(device=self.device, seed=seed)
         self.sim.create_state_from_snapshot(self.snapshot)
         self.forcefield = []
         # Set up forces, GB pair, harmonic bonds and angles:
@@ -139,13 +133,17 @@ class Simulation:
     def dt(self):
         return self._dt
 
+    @property 
+    def method(self):
+        return self.sim.operations.integrator.methods[0]
+
     @dt.setter
     def dt(self, value):
         self._dt = value 
         if self.integrator:
             self.sim.operations.integrator.dt = self._dt
 
-    def set_integrator(
+    def set_integrator_method(
             self,
             integrator_method,
             method_kwargs,
@@ -158,19 +156,24 @@ class Simulation:
             self.integrator.rigid = self.rigid
             self.integrator.forces = self.forcefield
             self.sim.operations.add(self.integrator)
-            self.method = integrator_method(**method_kwargs) 
-            self.sim.operations.integrator.methods = [self.method]
+            new_method = integrator_method(**method_kwargs) 
+            self.sim.operations.integrator.methods = [new_method]
         # Update the existing integrator with a new method
         else:
             self._update_integrator_method(integrator_method, method_kwargs)
 
     def _update_integrator_method(self, integrator_method, method_kwargs):
         self.integrator.methods.remove(self.method)
-        self.method = integrator_method(**method_kwargs)
-        self.integrator.methods.append(self.method)
+        new_method = integrator_method(**method_kwargs)
+        self.integrator.methods.append(new_method)
 
     def run_shrink(
-            self, kT, n_steps, shrink_period=10, thermalize_particles=True
+            self,
+            kT,
+            tau_kt,
+            n_steps,
+            shrink_period=10,
+            thermalize_particles=True
     ):
         """Run a shrink simulation to reach a target volume."""
         # Set up box resizer
@@ -193,7 +196,7 @@ class Simulation:
         )
         self.sim.operations.updaters.append(box_resize)
         # Use NVT integrator during shrinking
-        self.set_integrator(
+        self.set_integrator_method(
                 integrator_method=hoomd.md.methods.NVT,
                 method_kwargs={"tau": tau_kt, "filter": self.all, "kT": kT},
         )
@@ -218,12 +221,13 @@ class Simulation:
             default_gamma_r=(1.0, 1.0, 1.0),
             thermalize_particles=True
     ):
-        self.set_integrator(
+        self.set_integrator_method(
                 integrator_method=hoomd.md.methods.Langevin,
                 method_kwargs={
+                        "filter": self.all,
                         "kT": kT,
                         "alpha": alpha,
-                        "tally_reservoir_energy": tally_resivoir_energy,
+                        "tally_reservoir_energy": tally_reservoir_energy,
                         "default_gamma": default_gamma,
                         "default_gamma_r": default_gamma_r,
                     }
@@ -252,7 +256,7 @@ class Simulation:
             gamma=0.0,
             thermalize_particles=True
     ):
-        self.set_integrator(
+        self.set_integrator_method(
                 integrator_method=hoomd.md.methods.NPT,
                 method_kwargs={
                     "kT": kT,
@@ -263,7 +267,8 @@ class Simulation:
                     "box_dof": box_dof,
                     "rescale_all": rescale_all,
                     "gamma": gamma,
-                    "filter": self.all, "kT": kT
+                    "filter": self.all,
+                    "kT": kT
                 }
         )
         if thermalize_particles:
@@ -276,11 +281,11 @@ class Simulation:
                         filter=self.all, kT=kT
                 )
             self.sim.run(0)
-            self.sim.state.thermalize_thermostat_and_barostat_dof()
+            self.method.thermalize_thermostat_and_barostat_dof()
         self.sim.run(n_steps)
     
     def run_NVT(self, n_steps, kT, tau_kt, thermalize_particles=True):
-        self.set_integrator(
+        self.set_integrator_method(
                 integrator_method=hoomd.md.methods.NVT,
                 method_kwargs={"tau": tau_kt, "filter": self.all, "kT": kT},
         )
@@ -294,11 +299,11 @@ class Simulation:
                         filter=self.all, kT=kT
                 )
             self.sim.run(0)
-            self.sim.state.thermalize_thermostat_dof()
+            self.method.thermalize_thermostat_dof()
         self.sim.run(n_steps)
 
     def run_NVE(self, n_steps):
-        self.set_integrator(
+        self.set_integrator_method(
                 integrator_method=hoomd.md.methods.NVE,
                 method_kwargs={"filter": self.all},
         )
