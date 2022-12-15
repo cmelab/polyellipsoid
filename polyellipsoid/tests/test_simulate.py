@@ -6,6 +6,22 @@ import numpy as np
 import pytest
 
 class TestSimulate(BaseTest):
+    def test_change_dt(self, packed_system):
+        sim = Simulation(
+                system=packed_system,
+                lperp=1.0,
+                lpar=1.0,
+                epsilon=1.0,
+                dt=0.001,
+                r_cut=2.0,
+                bond_k=1000,
+                seed=42,
+                gsd_write=1000,
+                log_write=100
+        )
+        assert sim.dt == 0.001
+        sim.dt = 0.0001
+        assert sim.dt == 0.0001
 
     def test_angles(self, packed_system):
         sim = Simulation(
@@ -52,7 +68,7 @@ class TestSimulate(BaseTest):
     def test_run_NVT(self, sim_init):
         sim_init.run_NVT(n_steps=2000, kT=1.0, tau_kt=0.01) 
         assert isinstance(sim_init.method, hoomd.md.methods.NVT)
-        
+
     def test_run_NPT(self, sim_init):
         sim_init.run_NPT(
                 n_steps=0, kT=1.0, tau_kt=0.01, pressure=0.001, tau_pressure=0.1
@@ -81,12 +97,6 @@ class TestSimulate(BaseTest):
         )
         sim_init.run_NVT(n_steps=2000, kT=kT_ramp, tau_kt=0.001)
 
-    @pytest.mark.skip(reason="Getting particle out of box errors")
     def test_shrink_to_quench(self, sim_init):
-        sim_init.shrink(n_steps=2000, kT=1.0)
-        sim_init.quench(n_steps=2000, kT=2.0)
-
-    @pytest.mark.skip(reason="Getting particle out of box errors")
-    def test_shrink_to_anneal(self, sim_init):
-        sim_init.shrink(n_steps=2000, kT=1.0)
-        sim_init.anneal(kT_init=1.0, kT_final=2.0, step_sequence=[200]*5)
+        sim_init.run_shrink(n_steps=2000, kT=1.0, tau_kt=0.001)
+        sim_init.run_NVT(n_steps=2000, kT=2.0, tau_kt=0.001)
