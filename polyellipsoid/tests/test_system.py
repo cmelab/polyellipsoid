@@ -69,7 +69,7 @@ class TestSystem(BaseTest):
                 bond_length=0.25,
                 bead_length=2
         )
-        sys.stack(x=1, y=1, n=2, vector=[1,1,0])
+        sys.stack(z=1, y=1, n=2, vector=[1,1,0])
         assert isinstance(sys.target_box, np.ndarray)
 
     def test_stack_wrong_num_chains(self):
@@ -82,4 +82,4 @@ class TestSystem(BaseTest):
                 bead_length=2
         )
         with pytest.raises(ValueError):
-            sys.stack(x=1, y=1, n=2, vector=[1,1,0])
+            sys.stack(z=1, y=1, n=2, vector=[1,1,0])

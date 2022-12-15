@@ -11,7 +11,46 @@ units = base_units.base_units()
 
 
 class System:
-    """
+    """Constructs initial system configurations.
+
+    Uses Creates chains of polyellipsoid.Ellipsoid beads and organizes
+    the chains into different initial configurations. The number of chains
+    and their respective chain lengths can be controlled (i.e. creating
+    polydisperse systems).
+
+    Parameters
+    ----------
+    n_chains : int or list of int; required
+        The number of chains (i.e. molecules) to build the system with.
+        If creating a polydisperse system with multiple chain lengths,
+        set a list of integers.
+    chain_lengths : int or list of int; required
+        The number of beads in the chain. If creating a polydisperse system,
+        set a list of integers where the index corresponds to the index
+        in the n_chains parameter
+    bead_mass : float; required
+        The desired mass of the beads. The bead mass is used in calculating
+        total system mass and simulation volumes to match the desired density.
+    density: float; required (g/cm^3)
+        The desired density of the system in g/cm^3.
+    bond_length : float, default=0.01 (nm)
+        The distance between bonded anchor points of neighboring beads.
+        Small values work best to avoid artifacts of bonded ghost particles
+        freely rotating during the simulation.
+
+    Methods
+    -------
+    set_target_box: Sets the target_box attribute used during shrinking
+        Constraints (pre-defined values) can be set for any of the
+        box vectors (x, y, z) and any remaining unconstrained box
+        vectors are solved for to match the target density.
+    pack : System initializaion method that randomly packs chain in a box
+        Uses mBuild's fill_box method which utilizes PACKMOL to fill a
+        low density box which can be shrunken down to the target
+        density.
+    stack : System initialization method that populates chains on a lattice
+        Can be used to create ordered initial configurations
+
     """
     def __init__(
             self,
@@ -21,7 +60,6 @@ class System:
             bead_mass,
             density,
             bond_length=.01,
-            seed=42,
     ):
         if not isinstance(n_chains, list):
             n_chains = [n_chains]
@@ -52,11 +90,17 @@ class System:
                 chain.add_monomer(
                         ellipsoid,
                         indices=[0, 1],
-                        orientation=[[0,0,1], [0,0,-1]],
+                        orientation=[[1,0,0], [-1,0,0]],
                         replace=False,
                         separation=self.bond_length
                 )
                 chain.build(n=l, add_hydrogens=False)
+                chain.freud_generate_bonds(
+                        name_a="B",
+                        name_b="B",
+                        dmin=self.bead_length / 2 - 0.1, 
+                        dmax=self.bead_length / 2 + bond_length + 0.1 
+                )
                 self.chains.append(chain)
 
     def pack(self, box_expand_factor=5):
@@ -80,13 +124,13 @@ class System:
             compound=self.chains,
             n_compounds=[1 for i in self.chains],
             box=list(pack_box),
-            overlap=0.2,
-            edge=0.2,
+            overlap=0.5,
+            edge=0.5,
             fix_orientation=True
         )
-        self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
+        self.mb_system.label_rigid_bodies(discrete_bodies="ellipsoid")
 
-    def stack(self, x, y, n, vector, z_axis_adjust=1.0):
+    def stack(self, y, z, n, vector, x_axis_adjust=1.0):
         """Arranges chains in layers on an n x n lattice.
 
         """
@@ -105,7 +149,7 @@ class System:
                 try:
                     chain1 = self.chains[next_idx]
                     chain2 = self.chains[next_idx + 1]
-                    translate_by = np.array(vector)*(x, y, 0)
+                    translate_by = np.array(vector)*(0, y, z)
                     chain2.translate(translate_by)
                     cell = mb.Compound(subcompounds=[chain1, chain2])
                     cell.translate((0, y*j, 0))
@@ -113,14 +157,14 @@ class System:
                     next_idx += 2
                 except IndexError:
                     pass
-            layer.translate((x*i, 0, 0)) # shift layers along x dir
+            layer.translate((0, 0, z*1)) # shift layers along x dir
             self.mb_system.add(layer)
 
         bounding_box = np.array(self.mb_system.get_boundingbox().lengths)
-        bounding_box *= 1.10
-        target_z = bounding_box[-1] * z_axis_adjust
+        bounding_box *= 3 
+        target_x = bounding_box[0] * x_axis_adjust
         self.mb_system.box = mb.box.Box(bounding_box)
-        self.set_target_box(z_constraint=target_z)
+        self.set_target_box(x_constraint=target_x)
         self.mb_system.translate_to(
                 (
                     self.mb_system.box.Lx/2,
@@ -128,7 +172,7 @@ class System:
                     self.mb_system.box.Lz/2
                 )
         )
-        self.mb_system.label_rigid_bodies(discrete_bodies="dimer")
+        self.mb_system.label_rigid_bodies(discrete_bodies="ellipsoid")
 
     def set_target_box(
             self,

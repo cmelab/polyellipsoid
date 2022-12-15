@@ -104,27 +104,27 @@ class Simulation:
         nl = hoomd.md.nlist.Cell(buffer=0.40)
         gb = hoomd.md.pair.aniso.GayBerne(nlist=nl, default_r_cut=r_cut)
         gb.params[('R', 'R')] = dict(epsilon=epsilon, lperp=lperp, lpar=lpar)
-        zero_pairs = [
-                ('CT','CT'), ('CH','CT'), ('CH','CH'), ('CT','R'), ('CH','R')
-        ]
+        zero_pairs = [('A','A'), ('B','B'), ('A','B'), ('A','R'), ('B','R')]
         for pair in zero_pairs:
             gb.params[pair] = dict(epsilon=0.0, lperp=0.0, lpar=0.0)
         self.forcefield.append(gb)
         # Set up harmonic bond force
         harmonic_bond = hoomd.md.bond.Harmonic()
-        harmonic_bond.params["CH-CT"] = dict(
-                k=bond_k, r0=self.system.bond_length
+        harmonic_bond.params["A-A"] = dict(
+                k=bond_k, r0=self.system.bond_length * 10
+        )
+        harmonic_bond.params["B-B"] = dict(
+                k=0, r0=(self.system.bead_length * 10) / 2
         )
         self.forcefield.append(harmonic_bond)
         # Set up harmonic angle force
         if all([angle_k, angle_theta]):
             harmonic_angle = hoomd.md.angle.Harmonic()
-            harmonic_angle.params["CT-CH-CT"] = dict(k=angle_k, t0=angle_theta)
-            harmonic_angle.params["CH-CT-CH"] = dict(k=0, t0=0)
+            harmonic_angle.params["B-B-B"] = dict(k=angle_k, t0=angle_theta)
             self.forcefield.append(harmonic_angle)
-        # Set up hoomd groups 
-        self.all = hoomd.filter.Rigid(("center", "free"))
+
         # Set up integrator; method is added in the 3 sim functions
+        self.all = hoomd.filter.Rigid(("center", "free"))
         self.integrator = hoomd.md.Integrator(
                 dt=dt, integrate_rotational_dof=True
         )
@@ -153,10 +153,11 @@ class Simulation:
         ramp = hoomd.variant.Ramp(
                 A=0, B=1, t_start=0, t_ramp=int(n_steps)
         )
+        # Convert from nm (mbuild units, used in System()) to Angstrom
         self.target_box = hoomd.Box(
-                Lx=self.system.target_box[0],
-                Ly=self.system.target_box[1],
-                Lz=self.system.target_box[2],
+                Lx=self.system.target_box[0] * 10,
+                Ly=self.system.target_box[1] * 10,
+                Lz=self.system.target_box[2] * 10,
         )
         box_resize=hoomd.update.BoxResize(
                 box1=self.sim.state.box,
@@ -174,7 +175,7 @@ class Simulation:
         self.integrator.methods = [integrator_method]
         self.sim.operations.add(self.integrator)
         self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-        self.sim.run(n_steps + 1) 
+        self.sim.run(n_steps + 1, write_at_start=True) 
         self.ran_shrink = True
 
     def quench(self, kT, n_steps):
@@ -245,14 +246,11 @@ class Simulation:
 
         for kT in schedule:
             self.integrator.methods[0].kT = kT
-            self.sim.state.thermalize_particle_momenta(
-                    filter=self.all, kT=kT
-            )
+            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
             self.sim.run(schedule[kT], write_at_start=write_at_start)
 
     def _hoomd_writers(self):
         """Creates gsd and log writers"""
-        # GSD and Logging:
         writemode = "w"
         gsd_writer = hoomd.write.GSD(
                 filename="sim_traj.gsd",

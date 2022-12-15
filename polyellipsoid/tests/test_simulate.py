@@ -22,6 +22,7 @@ class TestSimulate(BaseTest):
                 gsd_write=1000,
                 log_write=100
         )
+        assert sim.snapshot.angles.types[0] == "B-B-B"
         sim.quench(n_steps=2000, kT=2.0)
 
     def test_init_sim(self, packed_system):
