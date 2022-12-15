@@ -38,15 +38,18 @@ class Simulation:
 
     Methods
     -------
-    shrink : Runs a Hoomd simulation
+    run_shrink : Runs a Hoomd simulation
         Run a shrink simulation to reduce simulation volume to match
         the target box set by system.target_box
-    quench : Runs a Hoomd simulation
-        Run a simulation at a single temperature in NVT
-    anneal : Runs a Hoomd simulation
-        Define a schedule of temperature and steps to follow over the
-        course of the simulation. Can be used in NVT or NPT at a single
-        pressure.
+    run_NPT : Runs a Hoomd simulation in the NPT ensemble
+    run_NVT : Runs a Hoomd simulation in the NVT ensemble
+    run_langevin : Runs a Hoomd using Langevin dynamics
+    run_NVE : Runs a Hoomd simulation in the NVE ensemble
+    temperature_ramp : Retruns a hoomd.variant.Ramp()
+        Can be passed into the kT parameter for each of the run functions
+    set_integrator : Sets an initial (or updates) integrator method
+        This is called automatically within the run functions, but
+        can also be used directly if needed.
 
     """
     def __init__(
@@ -166,22 +169,13 @@ class Simulation:
         self.method = integrator_method(**method_kwargs)
         self.integrator.methods.append(self.method)
 
-    def shrink(self, kT, n_steps, shrink_period=10):
-        """Run a shrink simulation to reach a target volume.
-
-        Parameters
-        ----------
-        kT : float, required
-            Temperature during shrink steps
-        n_steps : int, required
-            Number of simulations steps during shrinking
-        shrink_period : int, optional, default=10
-            Number of steps to run between box updates
-
-        """
+    def run_shrink(
+            self, kT, n_steps, shrink_period=10, thermalize_particles=True
+    ):
+        """Run a shrink simulation to reach a target volume."""
         # Set up box resizer
         box_resize_trigger = hoomd.trigger.Periodic(shrink_period)
-        ramp = hoomd.variant.Ramp(
+        box_ramp = hoomd.variant.Ramp(
                 A=0, B=1, t_start=0, t_ramp=int(n_steps)
         )
         # Convert from nm (mbuild units, used in System()) to Angstrom
@@ -193,21 +187,26 @@ class Simulation:
         box_resize=hoomd.update.BoxResize(
                 box1=self.sim.state.box,
                 box2=self.target_box,
-                variant=ramp,
+                variant=box_ramp,
                 trigger=box_resize_trigger,
                 filter=self.all
         )
         self.sim.operations.updaters.append(box_resize)
-
         # Use NVT integrator during shrinking
-        integrator_method = hoomd.md.methods.NVT(
-                filter=self.all, kT=kT, tau=self.tau
+        self.set_integrator(
+                integrator_method=hoomd.md.methods.NVT,
+                method_kwargs={"tau": tau_kt, "filter": self.all, "kT": kT},
         )
-        self.integrator.methods = [integrator_method]
-        self.sim.operations.add(self.integrator)
-        self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-        self.sim.run(n_steps + 1, write_at_start=True) 
-        self.ran_shrink = True
+        if thermalize_particles:
+            if isinstance(kT, hoomd.variant.Ramp):
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT.range[0]
+                )
+            else:
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT
+                )
+        self.sim.run(n_steps) 
 
     def run_langevin(
             self,
@@ -216,7 +215,8 @@ class Simulation:
             alpha,
             tally_reservoir_energy=False,
             default_gamma=1.0,
-            default_gamma_r=(1.0, 1.0, 1.0)
+            default_gamma_r=(1.0, 1.0, 1.0),
+            thermalize_particles=True
     ):
         self.set_integrator(
                 integrator_method=hoomd.md.methods.Langevin,
@@ -228,12 +228,15 @@ class Simulation:
                         "default_gamma_r": default_gamma_r,
                     }
         )
-        if isinstance(kT, hoomd.variant.Ramp):
-            self.sim.state.thermalize_particle_momenta(
-                    filter=self.all, kT=kT.range[0]
-            )
-        else:
-            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
+        if thermalize_particles:
+            if isinstance(kT, hoomd.variant.Ramp):
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT.range[0]
+                )
+            else:
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT
+                )
         self.sim.run(n_steps)
 
     def run_NPT(
@@ -246,7 +249,8 @@ class Simulation:
             couple="xyz",
             box_dof=[True, True, True, False, False, False],
             rescale_all=False,
-            gamma=0.0
+            gamma=0.0,
+            thermalize_particles=True
     ):
         self.set_integrator(
                 integrator_method=hoomd.md.methods.NPT,
@@ -262,72 +266,43 @@ class Simulation:
                     "filter": self.all, "kT": kT
                 }
         )
-        if isinstance(kT, hoomd.variant.Ramp):
-            self.sim.state.thermalize_particle_momenta(
-                    filter=self.all, kT=kT.range[0]
-            )
-        else:
-            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
+        if thermalize_particles:
+            if isinstance(kT, hoomd.variant.Ramp):
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT.range[0]
+                )
+            else:
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT
+                )
+            self.sim.run(0)
+            self.sim.state.thermalize_thermostat_and_barostat_dof()
         self.sim.run(n_steps)
     
-    def run_NVT(self, n_steps, kT, tau_kt):
+    def run_NVT(self, n_steps, kT, tau_kt, thermalize_particles=True):
         self.set_integrator(
                 integrator_method=hoomd.md.methods.NVT,
                 method_kwargs={"tau": tau_kt, "filter": self.all, "kT": kT},
         )
-        if isinstance(kT, hoomd.variant.Ramp):
-            self.sim.state.thermalize_particle_momenta(
-                    filter=self.all, kT=kT.range[0]
-            )
-        else:
-            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
+        if thermalize_particles:
+            if isinstance(kT, hoomd.variant.Ramp):
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT.range[0]
+                )
+            else:
+                self.sim.state.thermalize_particle_momenta(
+                        filter=self.all, kT=kT
+                )
+            self.sim.run(0)
+            self.sim.state.thermalize_thermostat_dof()
         self.sim.run(n_steps)
 
-    def anneal(
-            self,
-            kT_init=None,
-            kT_final=None,
-            step_sequence=None,
-            schedule=None
-    ):
-        """Run a simulation over a range of temperatures.
-        Give a starting and final temperature along with a step
-        sequence to follow, or pass in an explicit schedule to follow.
-
-        Parameters
-        ----------
-        kT_init : float, optional, defualt=None
-            The starting temperature
-        kT_final : float, optional, default=None
-            The final temperature
-        step_sequence : list of ints, optional, default=None
-            the series of simulation steps to run between
-            kT_init and kT_final
-        schedule : dict, optional, default=None
-            Use this instead of kT_init, kT_final and step_sequence
-            to explicity set the series of temperatures and steps to run
-            at each
-
-        """
-        if not self.ran_shrink: # Shrink not ran, add integrator method
-            integrator_method = hoomd.md.methods.NVT(
-                    filter=self.all, kT=1.0, tau=self.tau
-            )
-            self.integrator.methods = [integrator_method]
-            self.sim.operations.add(self.integrator)
-            write_at_start = True
-        else:
-            write_at_start = False
-
-        if not schedule:
-            temps = np.linspace(kT_init, kT_final, len(step_sequence))
-            temps = [np.round(t, 1) for t in temps]
-            schedule = dict(zip(temps, step_sequence))
-
-        for kT in schedule:
-            self.integrator.methods[0].kT = kT
-            self.sim.state.thermalize_particle_momenta(filter=self.all, kT=kT)
-            self.sim.run(schedule[kT], write_at_start=write_at_start)
+    def run_NVE(self, n_steps):
+        self.set_integrator(
+                integrator_method=hoomd.md.methods.NVE,
+                method_kwargs={"filter": self.all},
+        )
+        self.sim.run(n_steps)
 
     def temperature_ramp(
             self,
