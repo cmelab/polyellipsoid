@@ -28,7 +28,6 @@ class BaseTest:
                 lperp=0.5,
                 lpar=1.0,
                 epsilon=5,
-                tau=0.01,
                 dt=0.001,
                 r_cut=2.5,
                 bond_k=100000,

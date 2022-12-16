@@ -2,11 +2,11 @@ name: polyellipsoid
 channels:
   - conda-forge
 dependencies:
+  - mbuild>=0.15
   - freud
   - gmso
   - gsd
   - hoomd=*=*cpu*
-  - mbuild
   - numpy
   - pip
   - pytest
